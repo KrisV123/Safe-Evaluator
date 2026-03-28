@@ -1,0 +1,107 @@
+
+### PARSER GRAMMER
+
+# PEG frammer for parsing
+
+
+## CLARIFICATIONS:
+# 1. empty space means nothing special
+# 2. ? after terminal on nonterminal means optional
+# rules are order dependent (first is used before second)
+# duplication of similar rules is prefered for better readability
+
+
+---------------------- GRAMMER ------------------------
+
+
+PARSE:
+    | EXPR '$'
+
+EXPR:
+    | DISJUNCTION
+
+DISJUNCTION:
+    | CONJUCTION ('or' CONJUCTION)*
+
+CONJUCTION:
+    | IN_OPERATOR ('and' IN_OPERATOR)*
+
+IN_OPERATOR:
+    | COMPARE_OPERATOR 'not' 'in' EXPR
+    | COMPARE_OPERATOR 'in' EXPR
+    | COMPARE_OPERATOR
+
+COMPARE_OPERATOR:
+    | NEGATION (COMPARE_TERMINAL NEGATION)*
+
+COMPARE_TERMINAL:
+    | 'is' 'not'
+    | 'is'
+    | '<='
+    | '>='
+    | '<'
+    | '>'
+    | '=='
+    | '!='
+
+COMPARE_OPERATOR:
+    | NEGATION '<=' NEGATION ('and' NEGATION)*
+
+NEGATION:
+    | 'not' NEGATION
+    | HIGH_ORD_OPERATOR
+
+LOW_ORD_OPERATOR:
+    | HIGH_ORD_OPERATOR ('+' HIGH_ORD_OPERATOR)*
+    | HIGH_ORD_OPERATOR ('-' HIGH_ORD_OPERATOR)*
+
+HIGH_ORD_OPERATOR:
+    | FACTOR ('//' FACTOR)*
+    | FACTOR ('/' FACTOR)*
+    | FACTOR ('%' FACTOR)*
+    | FACTOR ('*' FACTOR)*
+
+FACTOR:
+    | '-' FACTOR
+    | '+' FACTOR
+    | POWER
+
+POWER:
+    | ATOM ** FACTOR
+    | ATOM
+
+ATOM:
+    | INT
+    | FLOAT
+    | BOOL
+    | IDENT
+    | STR
+    | CONTAINER
+    | '(' EXPR ')'
+
+CONTAINER:
+    | LIST
+    | TUPLE
+
+# in parser called list_rule
+LIST:
+    | '[' LIST_BODY? ']'
+
+LIST_BODY:
+    | EXPR (',' EXPR)* ','?
+
+# in parser called tuple_rule
+TUPLE:
+    | '(' TUPLE_BODY? ')'
+
+TUPLE_BODY:
+    | EXPR ',' (EXPR (',' EXPR)* ','?)?
+
+
+POVINNOSTI:
+
+1. kontrola typov premennych                HOTOVO
+2. kontrola hlbky AST stromu                HOTOVO
+3. constant folding                         HOTOVO
+4. pozriet sa na furthest failure v parseri HOTOVO
+5. napisat testy
