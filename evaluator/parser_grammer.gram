@@ -1,7 +1,7 @@
 
 ### PARSER GRAMMER
 
-# PEG frammer for parsing
+# PEG grammer for parsing
 
 
 ## CLARIFICATIONS:
@@ -76,12 +76,9 @@ ATOM:
     | BOOL
     | IDENT
     | STR
-    | CONTAINER
-    | '(' EXPR ')'
-
-CONTAINER:
     | LIST
     | TUPLE
+    | '(' EXPR ')'
 
 # in parser called list_rule
 LIST:
