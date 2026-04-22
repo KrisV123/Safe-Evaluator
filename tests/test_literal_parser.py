@@ -2,7 +2,6 @@ import pytest #type:ignore[import-not-found]
 from types import NoneType
 from evaluator.literal_parser import Lexer, Parser, TypeChecker, ConstantFolder, evaluate
 from evaluator.constants import (
-    op_table, op_type_table,
     atom_types, Lexer_type, nodes, Parser_tok,
     Lexer_tok, BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant
 ) 

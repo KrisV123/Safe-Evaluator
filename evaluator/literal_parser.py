@@ -1,12 +1,9 @@
 from __future__ import annotations
 import re
-import operator
 import json
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from pprint import pprint
-from typing import Literal
 from types import NoneType
 from itertools import product
 from evaluator.constants import (
