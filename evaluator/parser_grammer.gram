@@ -8,7 +8,7 @@
 # 1. empty space means nothing special
 # 2. ? after terminal on nonterminal means optional
 # rules are order dependent (first is used before second)
-# duplication of similar rules is prefered for better readability
+# duplication of similar rules is prefered for better readability (just in documentation)
 
 
 ---------------------- GRAMMER ------------------------
@@ -95,12 +95,3 @@ TUPLE:
 
 TUPLE_BODY:
     | EXPR ',' (EXPR (',' EXPR)* ','?)?
-
-
-POVINNOSTI:
-
-1. kontrola typov premennych                HOTOVO
-2. kontrola hlbky AST stromu                HOTOVO
-3. constant folding                         HOTOVO
-4. pozriet sa na furthest failure v parseri HOTOVO
-5. napisat testy
