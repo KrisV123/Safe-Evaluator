@@ -10,8 +10,8 @@ from typing import Literal
 from types import NoneType
 from itertools import product
 from evaluator.constants import (
-    CompareOP_lookup, op_table, op_type_table,
-    atom_types, CompareOP, Lexer_type, nodes,
+    op_table, op_type_table,
+    atom_types, Lexer_type, Parser_tok, nodes,
     Lexer_tok, BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant
 )
 
@@ -25,9 +25,12 @@ class Lexer:
 
     string: str
 
-    operators = {
-        'or', 'and', 'in', '==', '!=', '<', '>', '<=',
-        '>=', 'not', '+', '-', '*', '/', '//', '%', '**', 'is'
+    keyword_op = {
+        'or': Lexer_type.OR,
+        'and': Lexer_type.AND,
+        'in': Lexer_type.IN,
+        'not': Lexer_type.NOT,
+        'is': Lexer_type.IS
     }
 
     IDENT_RE = re.compile(r'[a-zA-Z_][0-9a-zA-Z_]*')
@@ -48,46 +51,46 @@ class Lexer:
                     pass
                 case '=':
                     if i + 1 < len(self.string) and self.string[i + 1] == '=':
-                        tok = Lexer_tok(Lexer_type.OP, '==', i)
+                        tok = Lexer_tok(Lexer_type.EQ, '==', i)
                         i += 1
                     else:
                         self.raise_syntax_error(i)
                 case '!':
                     if i + 1 < len(self.string) and self.string[i + 1] == '=':
-                        tok = Lexer_tok(Lexer_type.OP, '!=', i)
+                        tok = Lexer_tok(Lexer_type.NE, '!=', i)
                         i += 1
                     else:
                         self.raise_syntax_error(i)
                 case '<':
                     if i + 1 < len(self.string) and self.string[i + 1] == '=':
-                        tok = Lexer_tok(Lexer_type.OP, '<=', i)
+                        tok = Lexer_tok(Lexer_type.LE, '<=', i)
                         i += 1
                     else:
-                        tok = Lexer_tok(Lexer_type.OP, '<', i)
+                        tok = Lexer_tok(Lexer_type.LT, '<', i)
                 case '>':
                     if i + 1 < len(self.string) and self.string[i + 1] == '=':
-                        tok = Lexer_tok(Lexer_type.OP, '>=', i)
+                        tok = Lexer_tok(Lexer_type.GE, '>=', i)
                         i += 1
                     else:
-                        tok = Lexer_tok(Lexer_type.OP, '>', i)
+                        tok = Lexer_tok(Lexer_type.GT, '>', i)
                 case '+':
-                    tok = Lexer_tok(Lexer_type.OP, '+', i)
+                    tok = Lexer_tok(Lexer_type.PLUS, '+', i)
                 case '-':
-                    tok = Lexer_tok(Lexer_type.OP, '-', i)
+                    tok = Lexer_tok(Lexer_type.MINUS, '-', i)
                 case '*':
                     if i + 1 < len(self.string) and self.string[i + 1] == '*':
-                        tok = Lexer_tok(Lexer_type.OP, '**', i)
+                        tok = Lexer_tok(Lexer_type.DSTAR, '**', i)
                         i += 1
                     else:
-                        tok = Lexer_tok(Lexer_type.OP, '*', i)
+                        tok = Lexer_tok(Lexer_type.STAR, '*', i)
                 case '/':
                     if i + 1 < len(self.string) and self.string[i + 1] == '/':
-                        tok = Lexer_tok(Lexer_type.OP, '//', i)
+                        tok = Lexer_tok(Lexer_type.DSLASH, '//', i)
                         i += 1
                     else:
-                        tok = Lexer_tok(Lexer_type.OP, '/', i)
+                        tok = Lexer_tok(Lexer_type.SLASH, '/', i)
                 case '%':
-                    tok = Lexer_tok(Lexer_type.OP, '%', i)
+                    tok = Lexer_tok(Lexer_type.PERCENT, '%', i)
                 case "'" | '"':
                     str_lexem = re.match(self.STRING_RE, self.string[i:])
                     if str_lexem:
@@ -108,13 +111,13 @@ class Lexer:
                         self.raise_syntax_error(i)
                     i = new_i
                 case '(':
-                    tok = Lexer_tok(Lexer_type.OPEN_TUPLE, '(', i)
+                    tok = Lexer_tok(Lexer_type.LPAR, '(', i)
                 case ')':
-                    tok = Lexer_tok(Lexer_type.CLOSE_TUPLE, ')', i)
+                    tok = Lexer_tok(Lexer_type.RPAR, ')', i)
                 case '[':
-                    tok = Lexer_tok(Lexer_type.OPEN_LIST, '[', i)
+                    tok = Lexer_tok(Lexer_type.LSQB, '[', i)
                 case ']':
-                    tok = Lexer_tok(Lexer_type.CLOSE_LIST, ']', i)
+                    tok = Lexer_tok(Lexer_type.RSQB, ']', i)
                 case ',':
                     tok = Lexer_tok(Lexer_type.COMMA, ',', i)
                 case _:
@@ -124,8 +127,8 @@ class Lexer:
                     elif match == 'None':
                         tok = Lexer_tok(Lexer_type.NONE, match, i)
                     elif match:
-                        if match in self.operators:
-                            tok = Lexer_tok(Lexer_type.OP, match, i)
+                        if match in self.keyword_op.keys():
+                            tok = Lexer_tok(self.keyword_op[match], match, i)
                         else:
                             tok = Lexer_tok(Lexer_type.IDENT, match, i)
                     else:
@@ -169,7 +172,8 @@ class Lexer:
 class Parser:
     """
     Recursive decent parser combined with packrat logic,
-    that takes list of tokens and build AST tree
+    that takes list of tokens and build AST tree with
+    semantically same grammer as Python
     """
 
     __slots__ = [
@@ -259,21 +263,17 @@ class Parser:
 
         return self.tokens[self.pos]
 
-    def match(self, token: Lexer_type, lexem: str | None=None) -> bool:
+    def match(self, token: Lexer_type) -> bool:
         """
-        method, that tries to match Lexer_type and lexem, if is provided.
-        If it success, moves pointer and return True. If not, do nothing
+        method, that tries to match Lexer_type. If it success,
+        moves pointer and return True. If not, do nothing
         and returns False
         """
 
         tok = self.peek()
         state = False
         if tok.typ == token:
-            if lexem is not None:
-                state = True if tok.lexem == lexem else False
-            else:
-                state = True
-
+            state = True
         if state:
             self.pos += 1
         return state
@@ -281,17 +281,15 @@ class Parser:
     def expect(self, token: Lexer_type, lexem: str) -> bool:
         """
         method, that tries to match the token. If it success, moves pointer
-        and return None. If not, pointer stay and return Failure object with
-        provided lexem
-
-        PREPISAT POPIS !!!!!
+        and return True. If not, pointer stay, return False a and set new
+        instance Failiure object with provided lexem
         """
 
-        if self.match(token, lexem):
+        if self.match(token):
             return True
-        else:
-            self.create_fail(self.pos, self.peek(), [lexem])
-            return False
+
+        self.create_fail(self.pos, self.peek(), [lexem])
+        return False
 
     def parse(self) -> nodes | Failure:
         node = self.expr()
@@ -311,7 +309,7 @@ class Parser:
         return self.disjunction()
 
     def iterator_op(self,
-                    accpet_op: list[str],
+                    accept_op: dict[Lexer_type, Parser_tok],
                     next_rule: Callable[[], nodes | None]) -> nodes | None:
         left_node = next_rule()
 
@@ -319,13 +317,15 @@ class Parser:
             return left_node
 
         while True:
-            tok = self.peek()
-            if any(self.match(Lexer_type.OP, op) for op in accpet_op):
-                right_node = next_rule()
-                if right_node is None:
-                    return right_node
-                left_node = BinaryOp(tok, left_node, right_node)
-            else:
+            skip = True
+            for key, val in accept_op.items():
+                if self.match(key):
+                    skip = False
+                    right_node = next_rule()
+                    if right_node is None:
+                        return right_node
+                    left_node = BinaryOp(val, left_node, right_node)
+            if skip:
                 break
 
         return left_node
@@ -333,76 +333,73 @@ class Parser:
     @track
     @memo
     def disjunction(self) -> nodes | None:
-        return self.iterator_op(['or'], self.conjunction)
+        return self.iterator_op(
+            {Lexer_type.OR: Parser_tok.Or},self.conjunction
+        )
 
     @track
     @memo
     def conjunction(self) -> nodes | None:
-        return self.iterator_op(['and'], self.in_operator)
-
-    @track
-    @memo
-    def in_operator(self) -> nodes | None:
-        next_rule = self.compare_operator
-        left_node = next_rule()
-        if left_node is None:
-            return left_node
-
-        lookahead_1 = self.peek()
-
-        if self.match(Lexer_type.OP, 'not'):
-            lookahead_2 = self.peek()
-            if self.match(Lexer_type.OP, 'in'):
-                right_node = self.expr()
-                if right_node is None:
-                    return right_node
-                return UnaryOp(
-                    lookahead_1, BinaryOp(lookahead_2, right_node, left_node)
-                )
-            else:
-                self.pos -= 1
-
-        elif self.match(Lexer_type.OP, 'in'):
-            right_node = self.expr()
-            if right_node is None:
-                return right_node
-            return BinaryOp(lookahead_1, right_node, left_node)
-
-        return left_node
+        return self.iterator_op(
+            {Lexer_type.AND: Parser_tok.And}, self.compare_operator
+        )
 
     @track
     @memo
     def compare_operator(self) -> nodes | None:
         next_rule = self.negation
         left_node = next_rule()
-        lexer_operators = ('<=', '>=', '<', '>', '==', '!=')
+        lexer_operators = {
+            Lexer_type.IN: Parser_tok.In,
+            Lexer_type.LE: Parser_tok.Le,
+            Lexer_type.GE: Parser_tok.Ge,
+            Lexer_type.LT: Parser_tok.Lt,
+            Lexer_type.GT: Parser_tok.Gt,
+            Lexer_type.EQ: Parser_tok.Eq,
+            Lexer_type.NE: Parser_tok.Ne
+        }
         if left_node is None:
             return left_node
 
         operators, operands = [], [left_node]
 
         while True:
-            lookup_1 = self.peek()
-            if any(self.match(Lexer_type.OP, tok) for tok in lexer_operators):
-                right_node = next_rule()
-                if right_node is None:
-                    return right_node
-                operators.append(CompareOP_lookup[lookup_1.lexem])
-                operands.append(right_node)
-                continue
-
-            if self.match(Lexer_type.OP, 'is'):
-                if self.match(Lexer_type.OP, 'not'):
+            skip = False
+            for key, val in lexer_operators.items():
+                if self.match(key):
+                    skip = True
                     right_node = next_rule()
                     if right_node is None:
                         return right_node
-                    operators.append(CompareOP.IS_NOT)
+                    operators.append(val)
+                    operands.append(right_node)
+                    break
+            if skip:
+                continue
+
+            if self.match(Lexer_type.NOT):
+                if self.match(Lexer_type.IN):
+                    right_node = next_rule()
+                    if right_node is None:
+                        return right_node
+                    operators.append(Parser_tok.NotIn)
+                    operands.append(right_node)
+                    continue
+                else:
+                    self.pos -= 1
+
+            if self.match(Lexer_type.IS):
+                if self.match(Lexer_type.NOT):
+                    right_node = next_rule()
+                    if right_node is None:
+                        return right_node
+                    operators.append(Parser_tok.IsNot)
                     operands.append(right_node)
                 else:
                     right_node = next_rule()
                     if right_node is None:
                         return right_node
-                    operators.append(CompareOP.IS)
+                    operators.append(Parser_tok.Is)
                     operands.append(right_node)
                 continue
 
@@ -417,38 +414,53 @@ class Parser:
     def negation(self) -> nodes | None:
         next_rule = self.low_ord_operator
 
-        tok = self.peek()
-        if self.match(Lexer_type.OP, 'not'):
+        if self.match(Lexer_type.NOT):
             node = self.negation()
             if node is None:
                 return node
-            else:
-                return UnaryOp(tok, node)
+            return UnaryOp(Parser_tok.Not, node)
 
         return next_rule()
 
     @track
     @memo
     def low_ord_operator(self) -> nodes | None:
-        return self.iterator_op(['+', '-'], self.high_ord_operator)
+        return self.iterator_op(
+            {
+                Lexer_type.PLUS: Parser_tok.Plus,
+                Lexer_type.MINUS: Parser_tok.Minus
+            },
+            self.high_ord_operator
+        )
 
     @track
     @memo
     def high_ord_operator(self) -> nodes | None:
-        return self.iterator_op(['//', '/', '%', '*'], self.factor)
+        return self.iterator_op(
+            {
+                Lexer_type.DSLASH: Parser_tok.FloorDiv,
+                Lexer_type.SLASH: Parser_tok.TrueDiv,
+                Lexer_type.PERCENT: Parser_tok.Mod,
+                Lexer_type.STAR: Parser_tok.Mult
+            },
+            self.factor
+        )
 
     @track
     @memo
     def factor(self) -> nodes | None:
         next_rule = self.power
+        accept_op = {
+            Lexer_type.PLUS: Parser_tok.UnPlus,
+            Lexer_type.MINUS: Parser_tok.UnMinus
+        }
 
-        tok = self.peek()
-        if any(self.match(Lexer_type.OP, op) for op in ['+', '-']):
-            node = self.factor()
-            if node is None:
-                return node
-            else:
-                return UnaryOp(tok, node)
+        for key, val in accept_op.items():
+            if self.match(key):
+                node = self.factor()
+                if node is None:
+                    return node
+                return UnaryOp(val, node)
 
         return next_rule()
 
@@ -458,13 +470,11 @@ class Parser:
         next_rule = self.atom
         left_node = next_rule()
 
-        tok = self.peek()
-        if self.match(Lexer_type.OP, '**'):
+        if self.match(Lexer_type.DSTAR):
             right_node = self.factor()
             if left_node is None or right_node is None:
                 return right_node
-            else:
-                return BinaryOp(tok, left_node, right_node)
+            return BinaryOp(Parser_tok.Power, left_node, right_node)
 
         return left_node
 
@@ -473,49 +483,48 @@ class Parser:
     def atom(self) -> nodes | None:
         tok = self.peek()
         if self.match(Lexer_type.INT):
-            return Value(tok)
+            return Value(Parser_tok.Int, int(tok.lexem))
         elif self.match(Lexer_type.FLOAT):
-            return Value(tok)
+            return Value(Parser_tok.Float, float(tok.lexem))
         elif self.match(Lexer_type.BOOL):
-            return Value(tok)
+            return Value(
+                Parser_tok.Bool,
+                True if tok.lexem == 'True' else False
+            )
         elif self.match(Lexer_type.IDENT):
-            return Value(tok)
+            return Value(Parser_tok.Ident, tok.lexem)
         elif self.match(Lexer_type.STR):
-            return Value(tok)
+            return Value(Parser_tok.Str, tok.lexem[1:-1])
         elif self.match(Lexer_type.NONE):
-            return Value(tok)
-        elif self.match(Lexer_type.IDENT):
-            return Value(tok)
+            return Value(Parser_tok.None_, None)
 
         save = self.pos
-        if self.match(Lexer_type.OPEN_LIST):
+        if self.match(Lexer_type.LSQB):
             cont_node = self.list_rule()
             if cont_node is not None:
                 return cont_node
-        elif self.match(Lexer_type.OPEN_TUPLE):
+        elif self.match(Lexer_type.LPAR):
             cont_node = self.tuple_rule()
             if cont_node is not None:
                 return cont_node
         self.pos = save
 
-        if self.match(Lexer_type.OPEN_TUPLE):
+        if self.match(Lexer_type.LPAR):
             bracket_node = self.expr()
-            if self.expect(Lexer_type.CLOSE_TUPLE, ')'):
+            if self.expect(Lexer_type.RPAR, ')'):
                 return bracket_node
-            else:
-                return None
+            return None
 
         expect = ['int', 'float', 'bool', 'ident', 'str', 'container', 'expr']
         self.create_fail(self.pos, self.peek(), expect)
         return None
-        
 
     @track
     @memo
     def list_rule(self) -> Collection | None:
         collection: list[nodes] = []
 
-        if self.match(Lexer_type.CLOSE_LIST):
+        if self.match(Lexer_type.RSQB):
             return Collection(list, collection)
 
         node = self.expr()
@@ -524,14 +533,14 @@ class Parser:
         collection.append(node)
 
         while self.match(Lexer_type.COMMA):
-            if self.match(Lexer_type.CLOSE_LIST):
+            if self.match(Lexer_type.RSQB):
                 return Collection(list, collection)
             node = self.expr()
             if node is None:
                 return node
             collection.append(node)
 
-        if not self.expect(Lexer_type.CLOSE_LIST, ']'):
+        if not self.expect(Lexer_type.RSQB, ']'):
             return None
         return Collection(list, collection)
 
@@ -540,7 +549,7 @@ class Parser:
     def tuple_rule(self) -> Collection | None:
         collection: list[nodes] = []
 
-        if self.match(Lexer_type.CLOSE_TUPLE):
+        if self.match(Lexer_type.RPAR):
             return Collection(tuple, collection)
 
         node = self.expr()
@@ -551,7 +560,7 @@ class Parser:
         if not self.expect(Lexer_type.COMMA, ','):
             return None
 
-        if self.match(Lexer_type.CLOSE_TUPLE):
+        if self.match(Lexer_type.RPAR):
             return Collection(tuple, collection)
 
         node = self.expr()
@@ -560,14 +569,14 @@ class Parser:
         collection.append(node)
 
         while self.match(Lexer_type.COMMA):
-            if self.match(Lexer_type.CLOSE_TUPLE):
+            if self.match(Lexer_type.RPAR):
                 return Collection(tuple, collection)
             node = self.expr()
             if node is None:
                 return node
             collection.append(node)
 
-        if not self.expect(Lexer_type.CLOSE_TUPLE, ')'):
+        if not self.expect(Lexer_type.RPAR, ')'):
             return None
         return Collection(tuple, collection)
 
@@ -599,39 +608,40 @@ class TypeChecker:
         elif isinstance(node, CompareNode):
             return self.check_comparenode(node)
         elif isinstance(node, Constant):
-            raise RuntimeError("""Constant node should not appear in TypeChecker""")
+            raise RuntimeError("Constant node should not appear in TypeChecker")
 
         raise RuntimeError(
             f"Container node {node} wasn't recognized and could not be folded"
         )
-    
+
     def check_value(self, node: Value) -> set[object]:
-        typ = node.token.typ
-        if typ == Lexer_type.STR:
+        token = node.token
+        if token == Parser_tok.Str:
             return {str}
-        elif typ == Lexer_type.INT or typ == Lexer_type.BOOL:
+        elif token == Parser_tok.Int or token == Parser_tok.Bool:
             return {int}
-        elif typ == Lexer_type.FLOAT:
+        elif token == Parser_tok.Float:
             return {float}
-        elif typ == Lexer_type.NONE:
+        elif token == Parser_tok.None_:
             return {NoneType}
-        elif typ == Lexer_type.IDENT:
-            val = type(self.vars[node.token.lexem])
+        elif token == Parser_tok.Ident:
+            assert isinstance(node.value, str)
+            val = type(self.vars[node.value])
             return {val} if val is not bool else {int}
         else:
             raise RuntimeError(
                 f"Value node {node} wasn't recognized and could not be evaluated"
             )
-    
+
     def check_unaryop(self, node: UnaryOp) -> set[object] | TypeFail:
         union_type = self.check(node.child)
         if isinstance(union_type, self.TypeFail):
             return union_type
 
-        op_lexem = node.token.lexem
+        token = node.token
         new_union_type = set()
         for typ in union_type:
-            new_typ = op_type_table['unary'][op_lexem].get((typ,))
+            new_typ = op_type_table['unary'][token].get((typ,))
             if new_typ is None:
                 return self.TypeFail(node, (typ,))
             else:
@@ -646,12 +656,12 @@ class TypeChecker:
             return left_union_type
         if isinstance(right_union_type, self.TypeFail):
             return right_union_type
-        
-        op_lexem = node.token.lexem
+
+        token = node.token
         new_union_type = set()
 
         for left_typ, right_typ in product(left_union_type, right_union_type):
-            new_typ = op_type_table['binary'][op_lexem].get((left_typ, right_typ))
+            new_typ = op_type_table['binary'][token].get((left_typ, right_typ))
             if new_typ is None:
                 return self.TypeFail(node, (left_typ, right_typ))
             else:
@@ -668,23 +678,23 @@ class TypeChecker:
 
     def check_comparenode(self, node: CompareNode) -> set[object] | TypeFail:
 
-        all_ops = zip(node.operators, node.operands, node.operands[1:])
+        all_exprs = zip(node.operators, node.operands[1:])
         left_union_type = self.check(node.operands[0])
 
-        for op, _, val_2 in all_ops:
+        for op, val_2 in all_exprs:
             right_union_type = self.check(val_2)
             if isinstance(left_union_type, self.TypeFail):
                 return left_union_type
             if isinstance(right_union_type, self.TypeFail):
                 return right_union_type
-            
+
             for left_typ, right_typ in product(left_union_type, right_union_type):
                 new_typ = op_type_table['compare'][op].get((left_typ, right_typ))
                 if new_typ is None:
                     return self.TypeFail(node, (left_typ, right_typ))
-            
+
             left_union_type = right_union_type
-        
+
         return {int}
 
 
@@ -715,33 +725,11 @@ class Evaluator:
             )
 
     def handle_value(self, node: Value) -> atom_types:
-        typ = node.token.typ
-        lexem = node.token.lexem
-
-        if typ == Lexer_type.STR:
-            return lexem
-        elif typ == Lexer_type.INT:
-            return int(lexem)
-        elif typ == Lexer_type.FLOAT:
-            return float(lexem)
-        elif typ == Lexer_type.NONE:
-            return None
-        elif typ == Lexer_type.BOOL:
-            if lexem == 'True':
-                return True
-            elif lexem == 'False':
-                return False
-            else:
-                raise SyntaxError('Syntax error during evaluation')
-        elif typ == Lexer_type.IDENT:
-            try:
-                return self.vars[lexem]
-            except:
-                raise RuntimeError(f"Variable {lexem} does not exist")
+        if node.token == Parser_tok.Ident:
+            assert isinstance(node.value, str)
+            return self.vars[node.value]
         else:
-            raise RuntimeError(
-                f"Value node {node} wasn't recognized and could not be evaluated"
-            )
+            return node.value
 
     def handle_collection(self, node: Collection) -> list[atom_types] | tuple[atom_types, ...]:
         vals_iter = (self.eval(elem) for elem in node.collection)
@@ -755,16 +743,16 @@ class Evaluator:
         )
 
     def handle_unaryop(self, node: UnaryOp) -> atom_types:
-        lexem = node.token.lexem
-        return op_table['unary'][lexem](self.eval(node.child))
+        token = node.token
+        return op_table['unary'][token](self.eval(node.child))
 
     def handle_binaryop(self, node: BinaryOp) -> atom_types:
-        lexem = node.token.lexem
+        token = node.token
         left = self.eval(node.left_child)
-        if self.short_circuit_skip(left, lexem):
+        if self.short_circuit_skip(left, token):
             return left
         right = self.eval(node.right_child)
-        return op_table['binary'][lexem](left, right)
+        return op_table['binary'][token](left, right)
 
     def handle_comparenode(self, node: CompareNode) -> atom_types:
         return all(
@@ -773,12 +761,12 @@ class Evaluator:
             in zip(node.operators, node.operands, node.operands[1:])
         )
 
-    def short_circuit_skip(self, left: atom_types, op_lexem: str) -> bool:
+    def short_circuit_skip(self, left: atom_types, token: Parser_tok) -> bool:
         """Check if short-circuit operation can be skipped"""
 
-        if op_lexem == 'and' and not left:
+        if token == Parser_tok.And and not left:
             return True
-        elif op_lexem == 'or' and left:
+        elif token == Parser_tok.Or and left:
             return True
         return False
 
@@ -791,10 +779,7 @@ class ConstantFolder(Evaluator):
 
     def fold(self, node: nodes) -> nodes:
         if isinstance(node, Value):
-            if node.token.typ != Lexer_type.IDENT:
-                return Constant(self.handle_value(node))
-            else:
-                return node
+            return self.fold_value(node)            
         elif isinstance(node, UnaryOp):
             return self.fold_unaryop(node)
         elif isinstance(node, BinaryOp):
@@ -809,23 +794,29 @@ class ConstantFolder(Evaluator):
         raise RuntimeError(
             f"Container node {node} wasn't recognized and could not be folded"
         )
+    
+    def fold_value(self, node: Value) -> nodes:
+        return node if node.token == Parser_tok.Ident else Constant(node.value)
 
     def fold_unaryop(self, node: UnaryOp) -> nodes:
         node.child = self.fold(node.child)
         if isinstance(node.child, Constant):
-            lexem = node.token.lexem
-            const = op_table['unary'][lexem](node.child.value)
+            token = node.token
+            const = op_table['unary'][token](node.child.value)
             return Constant(const)
         else:
             return node
 
     def fold_binaryop(self, node: BinaryOp) -> nodes:
         node.left_child = self.fold(node.left_child)
+        if (isinstance(node.left_child, Constant) and
+            self.short_circuit_skip(node.left_child.value, node.token)):
+            return node.left_child
         node.right_child = self.fold(node.right_child)
         if (isinstance(node.left_child, Constant) and
             isinstance(node.right_child, Constant)):
-            lexem = node.token.lexem
-            const = op_table['binary'][lexem](
+            token = node.token
+            const = op_table['binary'][token](
                 node.left_child.value, node.right_child.value
             )
             return Constant(const)
@@ -943,32 +934,3 @@ def evaluate_safe(expr: str, json_vars: str) -> atom_types:
     """
 
     return evaluate(expr, json_str_to_dict(json_vars))
-
-if __name__ == '__main__':
-    expr = "5 == 5 None or awdawdaw==, 'awdaw' [dawda not 69.8 <[]('awdawd') True False"
-    expr_2 = "(2 + 3) * (4 + 5)"
-    test_expr = '< <= > >= == not'
-    #pprint(lexer(expr))
-
-    furthest = '1 in [2, 3 and 4 not in [5, 6] or 7 not in ]'
-
-    test_2 = '[0] * 5'
-    test_3 = '((((((((((((((((((5))))))))))))))))))'
-
-    #ans = evaluate(expr_2_5, {"tvoja_mama": 12, "my_tuple": [1,2,3], "bool": True, "my_none": None})
-    #print(ans)
-    tokens = Lexer("2 in [1,2,3] == 1").tokenize()
-    ast = Parser(tokens).parse()
-    pprint(ast)
-    assert not isinstance(ast, Parser.Failure)
-    typ = TypeChecker({"a": 2, "b": 3, "c": 4, "d": 10, "e": 2, "f": [1,2,3], "g": None, "h": None}).check(ast)
-    #pprint(typ)
-    ans = Evaluator({}).eval(ast)
-    print('MOJ EVAL',ans)
-    print('STANDART EVAL', eval("2 in [1,2,3] == 1"))
-    """print(
-        eval(
-            "((a + b) * c > d) and (e in f or g is h)",
-            {"a": 2, "b": 3, "c": 4, "d": 10, "e": 2, "f": [1,2,3], "g": None, "h": None}
-        )
-    )"""

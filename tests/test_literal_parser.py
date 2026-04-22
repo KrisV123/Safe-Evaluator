@@ -1,9 +1,9 @@
 import pytest #type:ignore[import-not-found]
 from types import NoneType
-from evaluator.literal_parser import Lexer, Parser, TypeChecker, evaluate
+from evaluator.literal_parser import Lexer, Parser, TypeChecker, ConstantFolder, evaluate
 from evaluator.constants import (
-    CompareOP_lookup, op_table, op_type_table,
-    atom_types, CompareOP, Lexer_type, nodes,
+    op_table, op_type_table,
+    atom_types, Lexer_type, nodes, Parser_tok,
     Lexer_tok, BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant
 ) 
 
@@ -14,19 +14,19 @@ class Test_Lexer:
     @pytest.mark.parametrize(
         'op, expect',
         [
-            ('==', [Lexer_tok(Lexer_type.OP, '==', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
-            ('!=', [Lexer_tok(Lexer_type.OP, '!=', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
-            ('<=', [Lexer_tok(Lexer_type.OP, '<=', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
-            ('<',  [Lexer_tok(Lexer_type.OP, '<', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            ('>=', [Lexer_tok(Lexer_type.OP, '>=', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
-            ('>',  [Lexer_tok(Lexer_type.OP, '>', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            ('+',  [Lexer_tok(Lexer_type.OP, '+', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            ('-',  [Lexer_tok(Lexer_type.OP, '-', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            ('**', [Lexer_tok(Lexer_type.OP, '**', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
-            ('*',  [Lexer_tok(Lexer_type.OP, '*', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            ('/',  [Lexer_tok(Lexer_type.OP, '/', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            ('//', [Lexer_tok(Lexer_type.OP, '//', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
-            ('%',  [Lexer_tok(Lexer_type.OP, '%', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('==', [Lexer_tok(Lexer_type.EQ, '==', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
+            ('!=', [Lexer_tok(Lexer_type.NE, '!=', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
+            ('<=', [Lexer_tok(Lexer_type.LE, '<=', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
+            ('<',  [Lexer_tok(Lexer_type.LT, '<', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('>=', [Lexer_tok(Lexer_type.GE, '>=', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
+            ('>',  [Lexer_tok(Lexer_type.GT, '>', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('+',  [Lexer_tok(Lexer_type.PLUS, '+', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('-',  [Lexer_tok(Lexer_type.MINUS, '-', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('**', [Lexer_tok(Lexer_type.DSTAR, '**', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
+            ('*',  [Lexer_tok(Lexer_type.STAR, '*', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('/',  [Lexer_tok(Lexer_type.SLASH, '/', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('//', [Lexer_tok(Lexer_type.DSLASH, '//', 0), Lexer_tok(Lexer_type.EOF, '$', 2)]),
+            ('%',  [Lexer_tok(Lexer_type.PERCENT, '%', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
         ],
         ids = ['==', '!=', '<=', '<', '>=', '>', '+', '-', '**', '*', '/', '//', '%']
     )
@@ -68,10 +68,10 @@ class Test_Lexer:
     @pytest.mark.parametrize(
         'bracket, expect',
         [
-            ('(', [Lexer_tok(Lexer_type.OPEN_TUPLE, '(', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            (')', [Lexer_tok(Lexer_type.CLOSE_TUPLE, ')', 0), Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            ('[', [Lexer_tok(Lexer_type.OPEN_LIST, '[', 0),   Lexer_tok(Lexer_type.EOF, '$', 1)]),
-            (']', [Lexer_tok(Lexer_type.CLOSE_LIST, ']', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('(', [Lexer_tok(Lexer_type.LPAR, '(', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            (')', [Lexer_tok(Lexer_type.RPAR, ')', 0), Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            ('[', [Lexer_tok(Lexer_type.LSQB, '[', 0),   Lexer_tok(Lexer_type.EOF, '$', 1)]),
+            (']', [Lexer_tok(Lexer_type.RSQB, ']', 0),  Lexer_tok(Lexer_type.EOF, '$', 1)]),
             (',', [Lexer_tok(Lexer_type.COMMA, ',', 0),       Lexer_tok(Lexer_type.EOF, '$', 1)]),
         ],
         ids=['(', ')', '[', ']', ',']
@@ -164,24 +164,24 @@ class Test_Lexer:
                 "5 == 5 None or awdawdaw==, 'awdaw' [dawda not 69.8 <[]('awdawd') True False",
                 [
                     Lexer_tok(Lexer_type.INT, '5', 0),
-                    Lexer_tok(Lexer_type.OP, '==', 2),
+                    Lexer_tok(Lexer_type.EQ, '==', 2),
                     Lexer_tok(Lexer_type.INT, '5', 5),
                     Lexer_tok(Lexer_type.NONE, 'None', 7),
-                    Lexer_tok(Lexer_type.OP, 'or', 12),
+                    Lexer_tok(Lexer_type.OR, 'or', 12),
                     Lexer_tok(Lexer_type.IDENT, 'awdawdaw', 15),
-                    Lexer_tok(Lexer_type.OP, '==', 23),
+                    Lexer_tok(Lexer_type.EQ, '==', 23),
                     Lexer_tok(Lexer_type.COMMA, ',', 25),
                     Lexer_tok(Lexer_type.STR, "'awdaw'", 27),
-                    Lexer_tok(Lexer_type.OPEN_LIST, '[', 35),
+                    Lexer_tok(Lexer_type.LSQB, '[', 35),
                     Lexer_tok(Lexer_type.IDENT, 'dawda', 36),
-                    Lexer_tok(Lexer_type.OP, 'not', 42),
+                    Lexer_tok(Lexer_type.NOT, 'not', 42),
                     Lexer_tok(Lexer_type.FLOAT, '69.8', 46),
-                    Lexer_tok(Lexer_type.OP, '<', 51),
-                    Lexer_tok(Lexer_type.OPEN_LIST, '[', 52),
-                    Lexer_tok(Lexer_type.CLOSE_LIST, ']', 53),
-                    Lexer_tok(Lexer_type.OPEN_TUPLE, '(', 54),
+                    Lexer_tok(Lexer_type.LT, '<', 51),
+                    Lexer_tok(Lexer_type.LSQB, '[', 52),
+                    Lexer_tok(Lexer_type.RSQB, ']', 53),
+                    Lexer_tok(Lexer_type.LPAR, '(', 54),
                     Lexer_tok(Lexer_type.STR, "'awdawd'", 55),
-                    Lexer_tok(Lexer_type.CLOSE_TUPLE, ')', 63),
+                    Lexer_tok(Lexer_type.RPAR, ')', 63),
                     Lexer_tok(Lexer_type.BOOL, 'True', 65),
                     Lexer_tok(Lexer_type.BOOL, 'False', 70),
                     Lexer_tok(Lexer_type.EOF, '$', 75)
@@ -190,30 +190,30 @@ class Test_Lexer:
             (
                 '< <= > >= == not',
                 [   
-                    Lexer_tok(Lexer_type.OP, '<', 0),
-                    Lexer_tok(Lexer_type.OP, '<=', 2),
-                    Lexer_tok(Lexer_type.OP, '>', 5),
-                    Lexer_tok(Lexer_type.OP, '>=', 7),
-                    Lexer_tok(Lexer_type.OP, '==', 10),
-                    Lexer_tok(Lexer_type.OP, 'not', 13),
+                    Lexer_tok(Lexer_type.LT, '<', 0),
+                    Lexer_tok(Lexer_type.LE, '<=', 2),
+                    Lexer_tok(Lexer_type.GT, '>', 5),
+                    Lexer_tok(Lexer_type.GE, '>=', 7),
+                    Lexer_tok(Lexer_type.EQ, '==', 10),
+                    Lexer_tok(Lexer_type.NOT, 'not', 13),
                     Lexer_tok(Lexer_type.EOF, '$', 16)
                 ]
             ),
             (
                 '[1,(5 and 6),True,]',
                 [
-                    Lexer_tok(Lexer_type.OPEN_LIST, '[', 0),
+                    Lexer_tok(Lexer_type.LSQB, '[', 0),
                     Lexer_tok(Lexer_type.INT, '1', 1),
                     Lexer_tok(Lexer_type.COMMA, ',', 2),
-                    Lexer_tok(Lexer_type.OPEN_TUPLE, '(', 3),
+                    Lexer_tok(Lexer_type.LPAR, '(', 3),
                     Lexer_tok(Lexer_type.INT, '5', 4),
-                    Lexer_tok(Lexer_type.OP, 'and', 6),
+                    Lexer_tok(Lexer_type.AND, 'and', 6),
                     Lexer_tok(Lexer_type.INT, '6', 10),
-                    Lexer_tok(Lexer_type.CLOSE_TUPLE, ')', 11),
+                    Lexer_tok(Lexer_type.RPAR, ')', 11),
                     Lexer_tok(Lexer_type.COMMA, ',', 12),
                     Lexer_tok(Lexer_type.BOOL, 'True', 13),
                     Lexer_tok(Lexer_type.COMMA, ',', 17),
-                    Lexer_tok(Lexer_type.CLOSE_LIST, ']', 18),
+                    Lexer_tok(Lexer_type.RSQB, ']', 18),
                     Lexer_tok(Lexer_type.EOF, '$', 19)
                 ]
             ),
@@ -221,31 +221,31 @@ class Test_Lexer:
                 '5**(not 1)*0<=5--6+6 in (8,(4%2),)',
                 [
                     Lexer_tok(Lexer_type.INT, '5', 0),
-                    Lexer_tok(Lexer_type.OP, '**', 1),
-                    Lexer_tok(Lexer_type.OPEN_TUPLE, '(', 3),
-                    Lexer_tok(Lexer_type.OP, 'not', 4),
+                    Lexer_tok(Lexer_type.DSTAR, '**', 1),
+                    Lexer_tok(Lexer_type.LPAR, '(', 3),
+                    Lexer_tok(Lexer_type.NOT, 'not', 4),
                     Lexer_tok(Lexer_type.INT, '1', 8),
-                    Lexer_tok(Lexer_type.CLOSE_TUPLE, ')', 9),
-                    Lexer_tok(Lexer_type.OP, '*', 10),
+                    Lexer_tok(Lexer_type.RPAR, ')', 9),
+                    Lexer_tok(Lexer_type.STAR, '*', 10),
                     Lexer_tok(Lexer_type.INT, '0', 11),
-                    Lexer_tok(Lexer_type.OP, '<=', 12),
+                    Lexer_tok(Lexer_type.LE, '<=', 12),
                     Lexer_tok(Lexer_type.INT, '5', 14),
-                    Lexer_tok(Lexer_type.OP, '-', 15),
-                    Lexer_tok(Lexer_type.OP, '-', 16),
+                    Lexer_tok(Lexer_type.MINUS, '-', 15),
+                    Lexer_tok(Lexer_type.MINUS, '-', 16),
                     Lexer_tok(Lexer_type.INT, '6', 17),
-                    Lexer_tok(Lexer_type.OP, '+', 18),
+                    Lexer_tok(Lexer_type.PLUS, '+', 18),
                     Lexer_tok(Lexer_type.INT, '6', 19),
-                    Lexer_tok(Lexer_type.OP, 'in', 21),
-                    Lexer_tok(Lexer_type.OPEN_TUPLE, '(', 24),
+                    Lexer_tok(Lexer_type.IN, 'in', 21),
+                    Lexer_tok(Lexer_type.LPAR, '(', 24),
                     Lexer_tok(Lexer_type.INT, '8', 25),
                     Lexer_tok(Lexer_type.COMMA, ',', 26),
-                    Lexer_tok(Lexer_type.OPEN_TUPLE, '(', 27),
+                    Lexer_tok(Lexer_type.LPAR, '(', 27),
                     Lexer_tok(Lexer_type.INT, '4', 28),
-                    Lexer_tok(Lexer_type.OP, '%', 29),
+                    Lexer_tok(Lexer_type.PERCENT, '%', 29),
                     Lexer_tok(Lexer_type.INT, '2', 30),
-                    Lexer_tok(Lexer_type.CLOSE_TUPLE, ')', 31),
+                    Lexer_tok(Lexer_type.RPAR, ')', 31),
                     Lexer_tok(Lexer_type.COMMA, ',', 32),
-                    Lexer_tok(Lexer_type.CLOSE_TUPLE, ')', 33),
+                    Lexer_tok(Lexer_type.RPAR, ')', 33),
                     Lexer_tok(Lexer_type.EOF, '$', 34)
                 ]
             )
@@ -261,7 +261,7 @@ class Test_Lexer:
         assert Lexer(string).tokenize() == expect
 
 
-class Test_parser:
+class Test_Parser:
 
     @pytest.mark.parametrize(
         "expr, expect",
@@ -269,21 +269,21 @@ class Test_parser:
             (
                 'True or False',
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'or', 5),
-                    left_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.BOOL, 'False', 8))
+                    token=Parser_tok.Or,
+                    left_child=Value(Parser_tok.Bool, True),
+                    right_child=Value(Parser_tok.Bool, False)
                 )
             ),
             (
                 'True or False or True',
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'or', 14),
+                    token=Parser_tok.Or,
                     left_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'or', 5),
-                        left_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 0)),
-                        right_child=Value(Lexer_tok(Lexer_type.BOOL, 'False', 8))
+                        token=Parser_tok.Or,
+                        left_child=Value(Parser_tok.Bool, True),
+                        right_child=Value(Parser_tok.Bool, False)
                     ),
-                    right_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 17))
+                    right_child=Value(Parser_tok.Bool, True)
                 )
             )
         ],
@@ -292,27 +292,27 @@ class Test_parser:
     def test_disjunction(self, expr: str, expect: nodes):
         tokens = Lexer(expr).tokenize()
         assert Parser(tokens).parse() == expect
-    
+
     @pytest.mark.parametrize(
         "expr, expect",
         [
             (
                 'True and False',
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'and', 5),
-                    left_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.BOOL, 'False', 9))
+                    token=Parser_tok.And,
+                    left_child=Value(Parser_tok.Bool, True),
+                    right_child=Value(Parser_tok.Bool, False)
                 )
             ),
             (
                 'True and False and True',
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'and', 15),
+                    token=Parser_tok.And,
                     left_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'and', 5),
-                        left_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 0)),
-                        right_child=Value(Lexer_tok(Lexer_type.BOOL, 'False', 9))),
-                    right_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 19))
+                        token=Parser_tok.And,
+                        left_child=Value(Parser_tok.Bool, True),
+                        right_child=Value(Parser_tok.Bool, False)),
+                    right_child=Value(Parser_tok.Bool, True)
                 )
             )
         ],
@@ -321,131 +321,124 @@ class Test_parser:
     def test_conjunction(self, expr: str, expect: nodes):
         tokens = Lexer(expr).tokenize()
         assert Parser(tokens).parse() == expect
-    
-    @pytest.mark.parametrize(
-        "expr, expect",
-        [
-            (
-                '5 in [5, 6]',
-                BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'in', 2),
-                    left_child=Collection(
-                        typ=list,
-                        collection=[
-                            Value(Lexer_tok(Lexer_type.INT, '5', 6)),
-                            Value(Lexer_tok(Lexer_type.INT, '6', 9))
-                        ]
-                    ),
-                    right_child=Value(token=Lexer_tok(Lexer_type.INT, '5', 0))
-                )
-            ),
-            (
-                '5 not in [5, 6]',
-                UnaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'not', 2),
-                    child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'in', 6),
-                        left_child=Collection(
-                            typ=list,
-                            collection=[
-                                Value(Lexer_tok(Lexer_type.INT, '5', 10)),
-                                Value(Lexer_tok(Lexer_type.INT, '6', 13))]),
-                        right_child=Value(token=Lexer_tok(Lexer_type.INT, '5', 0))
-                    )
-                )
-            )
-        ],
-        ids=['in', 'not_in']
-    )
-    def test_in_operator(self, expr: str, expect: nodes):
-        tokens = Lexer(expr).tokenize()
-        assert Parser(tokens).parse() == expect
 
     @pytest.mark.parametrize(
         "expr, expect",
         [
             (
+                '5 in [5, 6]',
+                CompareNode(
+                    operators=[Parser_tok.In],
+                    operands=[
+                        Value(Parser_tok.Int, 5),
+                        Collection(
+                            typ = list,
+                            collection=[
+                                Value(Parser_tok.Int, 5),
+                                Value(Parser_tok.Int, 6)
+                            ]
+                        )
+                    ]
+                )
+            ),
+            (
+                '5 not in [5, 6]',
+                CompareNode(
+                    operators=[Parser_tok.NotIn],
+                    operands=[
+                        Value(Parser_tok.Int, 5),
+                        Collection(
+                            typ = list,
+                            collection=[
+                                Value(Parser_tok.Int, 5),
+                                Value(Parser_tok.Int, 6)
+                            ]
+                        )
+                    ]
+                )
+            ),
+            (
                 '6 == 7',
                 CompareNode(
-                    operators=[CompareOP.EQ],
+                    operators=[Parser_tok.Eq],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 5))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
             (
                 '6 != 7',
                 CompareNode(
-                    operators=[CompareOP.NE],
+                    operators=[Parser_tok.Ne],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 5))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
             (
                 '6 >= 7',
                 CompareNode(
-                    operators=[CompareOP.GTE],
+                    operators=[Parser_tok.Ge],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 5))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
             (
                 '6 <= 7',
                 CompareNode(
-                    operators=[CompareOP.LTE],
+                    operators=[Parser_tok.Le],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 5))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
             (
                 '6 > 7',
                 CompareNode(
-                    operators=[CompareOP.GT],
+                    operators=[Parser_tok.Gt],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 4))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
             (
                 '6 < 7',
                 CompareNode(
-                    operators=[CompareOP.LT],
+                    operators=[Parser_tok.Lt],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 4))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
             (
                 '6 is 7',
                 CompareNode(
-                    operators=[CompareOP.IS],
+                    operators=[Parser_tok.Is],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 5))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
             (
                 '6 is not 7',
                 CompareNode(
-                    operators=[CompareOP.IS_NOT],
+                    operators=[Parser_tok.IsNot],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        Value(Lexer_tok(Lexer_type.INT, '7', 9))
+                        Value(Parser_tok.Int, 6),
+                        Value(Parser_tok.Int, 7)
                     ]
                 )
             ),
         ],
-        ids=['equal', 'not_equal', 'large_equal', 'low_equal', 'large', 'low', 'is', 'is_not']
+        ids=['in', 'not_in', 'equal', 'not_equal', 'large_equal', 'low_equal', 'large', 'low', 'is', 'is_not']
     )
     def test_compare_operator(self, expr: str, expect: nodes):
         tokens = Lexer(expr).tokenize()
@@ -457,17 +450,17 @@ class Test_parser:
             (
                 'not True',
                 UnaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'not', 0),
-                    child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 4))
+                    token=Parser_tok.Not,
+                    child=Value(Parser_tok.Bool, True)
                 )
             ),
             (
                 'not not True',
                 UnaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'not', 0),
+                    token=Parser_tok.Not,
                     child=UnaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'not', 4),
-                        child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 8))
+                        token=Parser_tok.Not,
+                        child=Value(Parser_tok.Bool, True)
                     )
                 )
             )
@@ -484,28 +477,28 @@ class Test_parser:
             (
                 "4 + 5",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '+', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '4', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '5', 4))
+                    token=Parser_tok.Plus,
+                    left_child=Value(Parser_tok.Int, 4),
+                    right_child=Value(Parser_tok.Int, 5)
                 )
             ),
             (
                 "4 - 5",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '-', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '4', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '5', 4))
+                    token=Parser_tok.Minus,
+                    left_child=Value(Parser_tok.Int, 4),
+                    right_child=Value(Parser_tok.Int, 5)
                 )
             ),
             (
                 "6 + 7 - 9",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '-', 6),
+                    token=Parser_tok.Minus,
                     left_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, '+', 2),
-                        left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                        right_child=Value(Lexer_tok(Lexer_type.INT, '7', 4))),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '9', 8)))
+                        token=Parser_tok.Plus,
+                        left_child=Value(Parser_tok.Int, 6),
+                        right_child=Value(Parser_tok.Int, 7)),
+                    right_child=Value(Parser_tok.Int, 9))
             )
         ],
         ids=['+', '-', 'consecutive']
@@ -513,40 +506,40 @@ class Test_parser:
     def test_low_ord_operator(self, expr: str, expect: nodes):
         tokens = Lexer(expr).tokenize()
         assert Parser(tokens).parse() == expect
-    
+
     @pytest.mark.parametrize(
         "expr, expect",
         [
             (
                 "6 // 7",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '//', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '7', 5))
+                    token=Parser_tok.FloorDiv,
+                    left_child=Value(Parser_tok.Int, 6),
+                    right_child=Value(Parser_tok.Int, 7)
                 )
             ),
             (
                 "6 / 7",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '/', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '7', 4))
+                    token=Parser_tok.TrueDiv,
+                    left_child=Value(Parser_tok.Int, 6),
+                    right_child=Value(Parser_tok.Int, 7)
                 )
             ),
             (
                 "6 % 7",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '%', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '7', 4))
+                    token=Parser_tok.Mod,
+                    left_child=Value(Parser_tok.Int, 6),
+                    right_child=Value(Parser_tok.Int, 7)
                 )
             ),
             (
                 "6 * 7",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '*', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '7', 4))
+                    token=Parser_tok.Mult,
+                    left_child=Value(Parser_tok.Int, 6),
+                    right_child=Value(Parser_tok.Int, 7)
                 )
             )
         ],
@@ -555,31 +548,31 @@ class Test_parser:
     def test_high_ord_operator(self, expr: str, expect: nodes):
         tokens = Lexer(expr).tokenize()
         assert Parser(tokens).parse() == expect
-    
+
     @pytest.mark.parametrize(
         "expr, expect",
         [
             (
                 "+6",
                 UnaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '+', 0),
-                    child=Value(Lexer_tok(Lexer_type.INT, '6', 1))
+                    token=Parser_tok.UnPlus,
+                    child=Value(Parser_tok.Int, 6)
                 )
             ),
             (
                 "-6",
                 UnaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '-', 0),
-                    child=Value(Lexer_tok(Lexer_type.INT, '6', 1))
+                    token=Parser_tok.UnMinus,
+                    child=Value(Parser_tok.Int, 6)
                 ),
             ),
             (
                 "+-6",
                 UnaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '+', 0),
+                    token=Parser_tok.UnPlus,
                     child=UnaryOp(
-                        token=Lexer_tok(Lexer_type.OP, '-', 1),
-                        child=Value(token=Lexer_tok(Lexer_type.INT, '6', 2))
+                        token=Parser_tok.UnMinus,
+                        child=Value(Parser_tok.Int, 6)
                     )
                 )
             )
@@ -589,27 +582,27 @@ class Test_parser:
     def test_factor(self, expr: str, expect: nodes):
         tokens = Lexer(expr).tokenize()
         assert Parser(tokens).parse() == expect
-    
+
     @pytest.mark.parametrize(
         "expr, expect",
         [
             (
                 "6 ** 7",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '**', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '7', 5))
+                    token=Parser_tok.Power,
+                    left_child=Value(Parser_tok.Int, 6),
+                    right_child=Value(Parser_tok.Int, 7)
                 )
             ),
             (
                 "6 ** 7 ** 9",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '**', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
+                    token=Parser_tok.Power,
+                    left_child=Value(Parser_tok.Int, 6),
                     right_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, '**', 7),
-                        left_child=Value(Lexer_tok(Lexer_type.INT, '7', 5)),
-                        right_child=Value(Lexer_tok(Lexer_type.INT, '9', 10))
+                        token=Parser_tok.Power,
+                        left_child=Value(Parser_tok.Int, 7),
+                        right_child=Value(Parser_tok.Int, 9)
                     )
                 )
             )
@@ -629,7 +622,7 @@ class Test_parser:
                 Collection(
                     typ=list,
                     collection=[
-                        Value(Lexer_tok(Lexer_type.INT, '1', 1))
+                        Value(Parser_tok.Int, 1)
                     ]
                 )
             ),
@@ -638,7 +631,7 @@ class Test_parser:
                 Collection(
                     typ=list,
                     collection=[
-                        Value(Lexer_tok(Lexer_type.INT, '1', 1))
+                        Value(Parser_tok.Int, 1)
                     ]
                 )
             ),
@@ -647,8 +640,8 @@ class Test_parser:
                 Collection(
                     typ=list,
                     collection=[
-                        Value(Lexer_tok(Lexer_type.INT, '1', 1)),
-                        Value(Lexer_tok(Lexer_type.INT, '2', 3))
+                        Value(Parser_tok.Int, 1),
+                        Value(Parser_tok.Int, 2)
                     ]
                 )
             ),
@@ -675,7 +668,7 @@ class Test_parser:
                 Collection(
                     typ=tuple,
                     collection=[
-                        Value(Lexer_tok(Lexer_type.INT, '1', 1))
+                        Value(Parser_tok.Int, 1)
                     ]
                 )
             ),
@@ -684,8 +677,8 @@ class Test_parser:
                 Collection(
                     typ=tuple,
                     collection=[
-                        Value(Lexer_tok(Lexer_type.INT, '1', 1)),
-                        Value(Lexer_tok(Lexer_type.INT, '2', 3))
+                        Value(Parser_tok.Int, 1),
+                        Value(Parser_tok.Int, 2)
                     ]
                 )
             ),
@@ -694,8 +687,8 @@ class Test_parser:
                 Collection(
                     typ=tuple,
                     collection=[
-                        Value(Lexer_tok(Lexer_type.INT, '1', 1)),
-                        Value(Lexer_tok(Lexer_type.INT, '2', 3))
+                        Value(Parser_tok.Int, 1),
+                        Value(Parser_tok.Int, 2)
                     ]
                 )
             ),
@@ -728,27 +721,27 @@ class Test_parser:
     def test_container(self, expr: str, expect: nodes | Parser.Failure):
         tokens = Lexer(expr).tokenize()
         assert Parser(tokens).parse() == expect
-    
+   
     @pytest.mark.parametrize(
         "expr, expect",
         [
             (
                 "(6)",
-                Value(Lexer_tok(Lexer_type.INT, '6', 1))
+                Value(Parser_tok.Int, 6)
             ),
             (
                 "((6))",
-                Value(Lexer_tok(Lexer_type.INT, '6', 2))
+                Value(Parser_tok.Int, 6)
             ),
             (
                 "6 ** (1 + 2)",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '**', 2),
-                    left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
+                    token=Parser_tok.Power,
+                    left_child=Value(Parser_tok.Int, 6),
                     right_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, '+', 8),
-                        left_child=Value(Lexer_tok(Lexer_type.INT, '1', 6)),
-                        right_child=Value(Lexer_tok(Lexer_type.INT, '2', 10))
+                        token=Parser_tok.Plus,
+                        left_child=Value(Parser_tok.Int, 1),
+                        right_child=Value(Parser_tok.Int, 2)
                     )
                 )
             )
@@ -762,12 +755,12 @@ class Test_parser:
     @pytest.mark.parametrize(
         "expr, expect",
         [
-            ("6",    Value(Lexer_tok(Lexer_type.INT, '6', 0))),
-            ("6.7",  Value(Lexer_tok(Lexer_type.FLOAT, '6.7', 0))),
-            ("True", Value(Lexer_tok(Lexer_type.BOOL, 'True', 0))),
-            ("wasd", Value(Lexer_tok(Lexer_type.IDENT, 'wasd', 0))),
-            ("'wa'", Value(Lexer_tok(Lexer_type.STR, "'wa'", 0))),
-            ("None", Value(Lexer_tok(Lexer_type.NONE, 'None', 0))),
+            ("6",    Value(Parser_tok.Int, 6)),
+            ("6.7",  Value(Parser_tok.Float, 6.7)),
+            ("True", Value(Parser_tok.Bool, True)),
+            ("wasd", Value(Parser_tok.Ident, 'wasd')),
+            ("'wa'", Value(Parser_tok.Str, 'wa')),
+            ("None", Value(Parser_tok.None_, None)),
             ("[]", Collection(typ=list, collection=[]))
         ],
         ids=['int', 'float', 'bool', 'ident', 'string', 'None', 'list']
@@ -782,25 +775,25 @@ class Test_parser:
             (
                 "not True and False or 6 ** tvoja_mama and -7",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'or', 19),
+                    token=Parser_tok.Or,
                     left_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'and', 9),
+                        token=Parser_tok.And,
                         left_child=UnaryOp(
-                            token=Lexer_tok(Lexer_type.OP, 'not', 0),
-                            child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 4))
+                            token=Parser_tok.Not,
+                            child=Value(Parser_tok.Bool, True)
                         ),
-                        right_child=Value(Lexer_tok(Lexer_type.BOOL, 'False', 13))
+                        right_child=Value(Parser_tok.Bool, False)
                     ),
                     right_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'and', 38),
+                        token=Parser_tok.And,
                         left_child=BinaryOp(
-                            token=Lexer_tok(Lexer_type.OP, '**', 24),
-                            left_child=Value(Lexer_tok(Lexer_type.INT, '6', 22)),
-                            right_child=Value(Lexer_tok(Lexer_type.IDENT, 'tvoja_mama', 27))
+                            token=Parser_tok.Power,
+                            left_child=Value(Parser_tok.Int, 6),
+                            right_child=Value(Parser_tok.Ident, 'tvoja_mama')
                         ),
                         right_child=UnaryOp(
-                            token=Lexer_tok(Lexer_type.OP, '-', 42),
-                            child=Value(Lexer_tok(Lexer_type.INT, '7', 43))
+                            token=Parser_tok.UnMinus,
+                            child=Value(Parser_tok.Int, 7)
                         )
                     )
                 )
@@ -808,63 +801,64 @@ class Test_parser:
             (
                 "6 and (7 or 6) and 9",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'and', 15),
+                    token=Parser_tok.And,
                     left_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'and', 2),
-                        left_child=Value(Lexer_tok(Lexer_type.INT, '6', 0)),
+                        token=Parser_tok.And,
+                        left_child=Value(Parser_tok.Int, 6),
                         right_child=BinaryOp(
-                            token=Lexer_tok(Lexer_type.OP, 'or', 9),
-                            left_child=Value(Lexer_tok(Lexer_type.INT, '7', 7)),
-                            right_child=Value(Lexer_tok(Lexer_type.INT, '6', 12))
+                            token=Parser_tok.Or,
+                            left_child=Value(Parser_tok.Int, 7),
+                            right_child=Value(Parser_tok.Int, 6)
                         )
                     ),
-                    right_child=Value(Lexer_tok(Lexer_type.INT, '9', 19))
+                    right_child=Value(Parser_tok.Int, 9)
                 )
             ),
             (
                 "tvoja_mama in (6 * 2, -7, 6 <= 2)",
-                BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'in', 11),
-                    left_child=Collection(
-                        typ=tuple,
-                        collection=[
-                            BinaryOp(
-                                token=Lexer_tok(Lexer_type.OP, '*', 17),
-                                left_child=Value(Lexer_tok(Lexer_type.INT, '6', 15)),
-                                right_child=Value(Lexer_tok(Lexer_type.INT, '2', 19))
-                            ),
-                            UnaryOp(
-                                token=Lexer_tok(Lexer_type.OP, '-', 22),
-                                child=Value(Lexer_tok(Lexer_type.INT, '7', 23))
-                            ),
-                            CompareNode(
-                                operators=[CompareOP.LTE],
-                                operands=[
-                                    Value(Lexer_tok(Lexer_type.INT, '6', 26)),
-                                    Value(Lexer_tok(Lexer_type.INT, '2', 31))
-                                ]
-                            )
-                        ]
-                    ),
-                    right_child=Value(Lexer_tok(Lexer_type.IDENT, 'tvoja_mama', 0))
+                CompareNode(operators=[Parser_tok.In],
+                    operands=[
+                        Value(Parser_tok.Ident, 'tvoja_mama'),
+                        Collection(
+                            typ=tuple,
+                            collection=[
+                                BinaryOp(
+                                    token=Parser_tok.Mult,
+                                    left_child=Value(Parser_tok.Int, 6),
+                                    right_child=Value(Parser_tok.Int, 2)
+                                ),
+                                UnaryOp(
+                                    token=Parser_tok.UnMinus,
+                                    child=Value(Parser_tok.Int, 7)
+                                ),
+                                CompareNode(
+                                    operators=[Parser_tok.Le],
+                                    operands=[
+                                        Value(Parser_tok.Int, 6),
+                                        Value(Parser_tok.Int, 2)
+                                    ]
+                                )
+                            ]
+                        )
+                    ]
                 )
             ),
             (
                 "5 <= 6 and 6 == tvoja_mama",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'and', 7),
+                    token=Parser_tok.And,
                     left_child=CompareNode(
-                        operators=[CompareOP.LTE],
+                        operators=[Parser_tok.Le],
                         operands=[
-                            Value(Lexer_tok(Lexer_type.INT, '5', 0)),
-                            Value(Lexer_tok(Lexer_type.INT, '6', 5))
+                            Value(Parser_tok.Int, 5),
+                            Value(Parser_tok.Int, 6)
                         ]
                     ),
                     right_child=CompareNode(
-                        operators=[CompareOP.EQ],
+                        operators=[Parser_tok.Eq],
                         operands=[
-                            Value(Lexer_tok(Lexer_type.INT, '6', 11)),
-                            Value(Lexer_tok(Lexer_type.IDENT, 'tvoja_mama', 16))
+                            Value(Parser_tok.Int, 6),
+                            Value(Parser_tok.Ident, 'tvoja_mama')
                         ]
                     )
                 )
@@ -872,13 +866,13 @@ class Test_parser:
             (
                 "True and not not True",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'and', 5),
-                    left_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 0)),
+                    token=Parser_tok.And,
+                    left_child=Value(Parser_tok.Bool, True),
                     right_child=UnaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'not', 9),
+                        token=Parser_tok.Not,
                         child=UnaryOp(
-                            token=Lexer_tok(Lexer_type.OP, 'not', 13),
-                            child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 17))
+                            token=Parser_tok.Not,
+                            child=Value(Parser_tok.Bool, True)
                         )
                     )
                 )
@@ -886,20 +880,20 @@ class Test_parser:
             (
                 "(True or False) + 5 ** 6.8 ** (not 6.9)",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, '+', 16),
+                    token=Parser_tok.Plus,
                     left_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'or', 6),
-                        left_child=Value(Lexer_tok(Lexer_type.BOOL, 'True', 1)),
-                        right_child=Value(Lexer_tok(Lexer_type.BOOL, 'False', 9))),
+                        token=Parser_tok.Or,
+                        left_child=Value(Parser_tok.Bool, True),
+                        right_child=Value(Parser_tok.Bool, False)),
                     right_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, '**', 20),
-                        left_child=Value(Lexer_tok(Lexer_type.INT, '5', 18)),
+                        token=Parser_tok.Power,
+                        left_child=Value(Parser_tok.Int, 5),
                         right_child=BinaryOp(
-                            token=Lexer_tok(Lexer_type.OP, '**', 27),
-                            left_child=Value(Lexer_tok(Lexer_type.FLOAT, '6.8', 23)),
+                            token=Parser_tok.Power,
+                            left_child=Value(Parser_tok.Float, 6.8),
                             right_child=UnaryOp(
-                                token=Lexer_tok(Lexer_type.OP, 'not', 31),
-                                child=Value(Lexer_tok(Lexer_type.FLOAT, '6.9', 35))
+                                token=Parser_tok.Not,
+                                child=Value(Parser_tok.Float, 6.9)
                             )
                         )
                     )
@@ -907,59 +901,72 @@ class Test_parser:
             ),
             (
                 "6 not in (7,)",
-                UnaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'not', 2),
-                    child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'in', 6),
-                        left_child=Collection(
+                CompareNode(
+                    operators=[Parser_tok.NotIn],
+                    operands=[
+                        Value(Parser_tok.Int, 6),
+                        Collection(
                             typ=tuple,
-                            collection=[
-                                Value(Lexer_tok(Lexer_type.INT, '7', 10))
-                            ]
+                            collection=[Value(Parser_tok.Int, 7)]
+                        )
+                    ]
+                )
+            ),
+            (
+                "6 not in (7,) == 6",
+                CompareNode(
+                    operators=[Parser_tok.NotIn, Parser_tok.Eq],
+                    operands=[
+                        Value(Parser_tok.Int, 6),
+                        Collection(
+                            typ=tuple,
+                            collection=[Value(Parser_tok.Int, 7)]
                         ),
-                        right_child=Value(Lexer_tok(Lexer_type.INT, '6', 0))
-                    )
+                        Value(Parser_tok.Int, 6)
+                    ]
                 )
             ),
             (
                 "tvoja_mamka is None",
                 CompareNode(
-                    operators=[CompareOP.IS],
+                    operators=[Parser_tok.Is],
                     operands=[
-                        Value(Lexer_tok(Lexer_type.IDENT, 'tvoja_mamka', 0)),
-                        Value(Lexer_tok(Lexer_type.NONE, 'None', 15))
+                        Value(Parser_tok.Ident, 'tvoja_mamka'),
+                        Value(Parser_tok.None_, None)
                     ]
                 )
             ),
             (
                 "5 <= 5 and 5 % 5 and 5 in (1,2,)",
                 BinaryOp(
-                    token=Lexer_tok(Lexer_type.OP, 'and', 17),
+                    token=Parser_tok.And,
                     left_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'and', 7),
+                        token=Parser_tok.And,
                         left_child=CompareNode(
-                            operators=[CompareOP.LTE],
+                            operators=[Parser_tok.Le],
                             operands=[
-                                Value(Lexer_tok(Lexer_type.INT, '5', 0)),
-                                Value(Lexer_tok(Lexer_type.INT, '5', 5))
+                                Value(Parser_tok.Int, 5),
+                                Value(Parser_tok.Int, 5)
                             ]
                         ),
                         right_child=BinaryOp(
-                            token=Lexer_tok(Lexer_type.OP, '%', 13),
-                            left_child=Value(token=Lexer_tok(Lexer_type.INT, '5', 11)),
-                            right_child=Value(token=Lexer_tok(Lexer_type.INT, '5', 15))
+                            token=Parser_tok.Mod,
+                            left_child=Value(Parser_tok.Int, 5),
+                            right_child=Value(Parser_tok.Int, 5)
                         )
                     ),
-                    right_child=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, 'in', 23),
-                        left_child=Collection(
-                            typ=tuple,
-                            collection=[
-                                Value(token=Lexer_tok(Lexer_type.INT, '1', 27)),
-                                Value(token=Lexer_tok(Lexer_type.INT, '2', 29))
-                            ]
-                        ),
-                        right_child=Value(Lexer_tok(Lexer_type.INT, '5', 21))
+                    right_child=CompareNode(
+                        operators=[Parser_tok.In],
+                        operands=[
+                            Value(Parser_tok.Int, 5),
+                            Collection(
+                                typ=tuple,
+                                collection=[
+                                    Value(Parser_tok.Int, 1),
+                                    Value(Parser_tok.Int, 2)
+                                ]
+                            )
+                        ]
                     )
                 )
             ),
@@ -975,7 +982,7 @@ class Test_parser:
                 "and",
                 Parser.Failure(
                     pos=0,
-                    wrong_tok=Lexer_tok(Lexer_type.OP, 'and', 0),
+                    wrong_tok=Lexer_tok(Lexer_type.AND, 'and', 0),
                     expect=['int', 'float', 'bool', 'ident', 'str', 'container', 'expr']
                 )
             )
@@ -984,6 +991,7 @@ class Test_parser:
     def test_expressions(self, expr: str, expect: nodes):
         tokens = Lexer(expr).tokenize()
         assert Parser(tokens).parse() == expect
+
 
 class Test_TypeChecker:
 
@@ -1226,9 +1234,9 @@ class Test_TypeChecker:
                 "1 + 'string'",
                 TypeChecker.TypeFail(
                     failed_node=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, '+', 2),
-                        left_child=Value(Lexer_tok(Lexer_type.INT, '1', 0)),
-                        right_child=Value(Lexer_tok(Lexer_type.STR, "'string'", 4))),
+                        token=Parser_tok.Plus,
+                        left_child=Value(Parser_tok.Int, 1),
+                        right_child=Value(Parser_tok.Str, 'string')),
                     types=(int, str)
                 )
             ),
@@ -1236,16 +1244,16 @@ class Test_TypeChecker:
                 "7 and ([1] + (2,3))",
                 TypeChecker.TypeFail(
                     failed_node=BinaryOp(
-                        token=Lexer_tok(Lexer_type.OP, '+', 11),
+                        token=Parser_tok.Plus,
                         left_child=Collection(
                             typ=list,
-                            collection=[Value(Lexer_tok(Lexer_type.INT, '1', 8))]
+                            collection=[Value(Parser_tok.Int, 1)]
                         ),
                         right_child=Collection(
                             typ=tuple,
                             collection=[
-                                Value(Lexer_tok(Lexer_type.INT, '2', 14)),
-                                Value(Lexer_tok(Lexer_type.INT, '3', 16))
+                                Value(Parser_tok.Int, 2),
+                                Value(Parser_tok.Int, 3)
                             ]
                         )
                     ),
@@ -1268,6 +1276,7 @@ class Test_Evaluator:
         [
             # binary
             pytest.param("variable + other", {"variable": 5, "other": 2}, id="add"),
+            pytest.param("5 + 2", {}, id="add_without_vars"),
             pytest.param("variable - other", {"variable": 5, "other": 2}, id="sub"),
             pytest.param("variable * other", {"variable": 5, "other": 2}, id="mul"),
             pytest.param("variable / other", {"variable": 5, "other": 2}, id="truediv"),
@@ -1281,9 +1290,12 @@ class Test_Evaluator:
             pytest.param("variable or other", {"variable": 5, "other": 7}, id="or_true_left"),
 
             pytest.param("variable in container", {"variable": 2, "container": [1, 2, 3]}, id="in_list_true"),
+            pytest.param("2 in [1, 2, 3]", {}, id="in_list_true_without_vars"),
             pytest.param("variable in container", {"variable": 4, "container": [1, 2, 3]}, id="in_list_false"),
             pytest.param("variable in container", {"variable": "a", "container": "cat"}, id="in_str_true"),
             pytest.param("variable in container", {"variable": "z", "container": "cat"}, id="in_str_false"),
+            pytest.param("variable not in container", {"variable": 2, "container": [1, 2, 3]}, id="not_in_list_true"),
+            pytest.param("variable not in container", {"variable": "z", "container": "cat"}, id="not_in_str_false"),
 
             pytest.param("a is b", {"a": None, "b": None}, id="is_none"),
             pytest.param("a is b", {"a": [], "b": []}, id="is_list_different"),
@@ -1383,6 +1395,11 @@ class Test_Evaluator:
                 id="arith_mod_compare",
             ),
             pytest.param(
+                "((10 + 5) % 4) == 3",
+                {},
+                id="arith_mod_compare_without_vars",
+            ),
+            pytest.param(
                 "(x is y) and (a + b == c)",
                 {"x": None, "y": None, "a": 2, "b": 3, "c": 5},
                 id="identity_and_eq",
@@ -1411,6 +1428,11 @@ class Test_Evaluator:
                 "((a + b) ** c % d) == (e * f - g)",
                 {"a": 2, "b": 1, "c": 3, "d": 5, "e": 2, "f": 4, "g": 3},
                 id="heavy_arith_compare",
+            ),
+            pytest.param(
+                "((2 + 1) ** 3 % 5) == (2 * 4 - 3)",
+                {},
+                id="heavy_arith_compare_without_vars",
             ),
             pytest.param(
                 "(a in b) and not (c in d) or (e is not f)",
@@ -1442,3 +1464,215 @@ class Test_Evaluator:
     def test_complex_expressions(self, expr: str, vars: dict[str, atom_types]):
         assert evaluate(expr, vars) == eval(expr, vars)
 
+
+class Test_ConstantFolder:
+
+    @pytest.mark.parametrize(
+        "expr, expect",
+        [
+            pytest.param("5 + 6", Constant(11), id="add"),
+            pytest.param("10 - 3", Constant(7), id="sub"),
+            pytest.param("4 * 7", Constant(28), id="mul"),
+            pytest.param("8 / 2", Constant(4.0), id="div"),
+            pytest.param("2 ** 3", Constant(8), id="pow"),
+            pytest.param("-5", Constant(-5), id="unary_minus"),
+            pytest.param("+5", Constant(5), id="unary_plus"),
+            pytest.param("not True", Constant(False), id="unary_not"),
+            pytest.param("(2 + 3) * 4", Constant(20), id="nested_arith"),
+            pytest.param("[1, 2, 3]", Constant([1, 2, 3]), id="list"),
+            pytest.param("(1, 2, 3)", Constant((1, 2, 3)), id="tuple"),
+            pytest.param("[1 + 2, 3 * 4]", Constant([3, 12]), id="list_folded_items"),
+            pytest.param("1 < 2", Constant(True), id="compare_lt"),
+            pytest.param("1 < 2 < 3", Constant(True), id="chained_compare_true"),
+            pytest.param("1 < 2 > 3", Constant(False), id="chained_compare_false"),
+            pytest.param("1 == 1", Constant(True), id="compare_eq")
+        ]
+    )
+    def test_basic_ConstantFolder(self, expr: str, expect: nodes):
+        tokens = Lexer(expr).tokenize()
+        ast = Parser(tokens).parse()
+        assert not isinstance(ast, Parser.Failure)
+        assert ConstantFolder().fold(ast) == expect
+    
+    @pytest.mark.parametrize(
+        "expr, expect",
+        [
+            pytest.param(
+                "x",
+                Value(Parser_tok.Ident, "x"),
+                id="ident"
+            ),
+            pytest.param(
+                "x + 6",
+                BinaryOp(
+                    token=Parser_tok.Plus,
+                    left_child=Value(Parser_tok.Ident, "x"),
+                    right_child=Constant(6)
+                ),
+                id="mixed_add"
+            ),
+            pytest.param(
+                "-x",
+                UnaryOp(
+                    token=Parser_tok.UnMinus,
+                    child=Value(Parser_tok.Ident, "x")
+                ),
+                id="unary_ident"
+            ),
+            pytest.param(
+                "[1, x, 3]",
+                Collection(
+                    typ=list,
+                    collection=[
+                        Constant(1),
+                        Value(Parser_tok.Ident, "x"),
+                        Constant(3),
+                    ],
+                ),
+                id="list_mixed"
+            ),
+            pytest.param(
+                "(1, x, 3)",
+                Collection(
+                    typ=tuple,
+                    collection=[
+                        Constant(1),
+                        Value(Parser_tok.Ident, "x"),
+                        Constant(3),
+                    ],
+                ),
+                id="tuple_mixed"
+            ),
+            pytest.param(
+                "1 < x < 3",
+                CompareNode(
+                    operands=[
+                        Constant(1),
+                        Value(Parser_tok.Ident, "x"),
+                        Constant(3),
+                    ],
+                    operators=[Parser_tok.Lt, Parser_tok.Lt],
+                ),
+                id="compare_mixed"
+            ),
+            pytest.param(
+                "(1 + 2) < (2 + 3)",
+                Constant(True),
+                id="compare_folded"
+            ),
+            pytest.param(
+                "5 + 6 * 2",
+                Constant(17),
+                id="arith_precedence"
+            ),
+            pytest.param(
+                "(5 + 6) * 2",
+                Constant(22),
+                id="arith_parentheses"
+            ),
+            pytest.param(
+                "-(3 + 4)",
+                Constant(-7),
+                id="unary_minus_nested"
+            ),
+            pytest.param(
+                "+(2 * 3 + 4)",
+                Constant(10),
+                id="unary_plus_nested"
+            ),
+            pytest.param(
+                "not (1 < 2)",
+                Constant(False),
+                id="unary_not_compare"
+            ),
+            pytest.param(
+                "[1 + 2, 3 * 4, -(5 - 7)]",
+                Constant([3, 12, 2]),
+                id="list_all_folded_complex"
+            ),
+            pytest.param(
+                "([1 + 2, 3], (4 * 5, 6 + 7))",
+                Constant(([3, 3], (20, 13))),
+                id="nested_collections"
+            ),
+            pytest.param(
+                "1 < 2 < 3 < 4",
+                Constant(True),
+                id="chained_compare_long_true"
+            ),
+            pytest.param(
+                "(1 + 2) < (3 * 2) <= (8 - 2)",
+                Constant(True),
+                id="mixed_compare_folded"
+            ),
+            pytest.param(
+                "x + (2 * 3)",
+                BinaryOp(
+                    token=Parser_tok.Plus,
+                    left_child=Value(Parser_tok.Ident, "x"),
+                    right_child=Constant(6),
+                ),
+                id="mixed_binary_right_folded"
+            ),
+            pytest.param(
+                "-(x + 2)",
+                UnaryOp(
+                    token=Parser_tok.UnMinus,
+                    child=BinaryOp(
+                        token=Parser_tok.Plus,
+                        left_child=Value(Parser_tok.Ident, "x"),
+                        right_child=Constant(2),
+                    ),
+                ),
+                id="unary_mixed_inner"
+            ),
+            pytest.param(
+                "[1, x + 2, 3 * 4]",
+                Collection(
+                    typ=list,
+                    collection=[
+                        Constant(1),
+                        BinaryOp(
+                            token=Parser_tok.Plus,
+                            left_child=Value(Parser_tok.Ident, "x"),
+                            right_child=Constant(2),
+                        ),
+                        Constant(12),
+                    ],
+                ),
+                id="list_partial_folded_complex"
+            ),
+            pytest.param(
+                "1 < x < 3 <= 4",
+                CompareNode(
+                    operands=[
+                        Constant(1),
+                        Value(Parser_tok.Ident, "x"),
+                        Constant(3),
+                        Constant(4),
+                    ],
+                    operators=[
+                        Parser_tok.Lt,
+                        Parser_tok.Lt,
+                        Parser_tok.Le,
+                    ],
+                ),
+                id="compare_mixed_complex"
+            ),
+            pytest.param(
+                "((1 + 2) * (3 + 4)) == (21)",
+                Constant(True),
+                id="compare_full_arith_eq"
+            ),
+            pytest.param(
+                "True or x",
+                Constant(True),
+                id="binary_short_circuit"
+            )
+        ]
+    )
+    def test_complex_ConstantFolder(self, expr: str, expect: nodes):
+        tokens = Lexer(expr).tokenize()
+        ast = Parser(tokens).parse()
+        assert not isinstance(ast, Parser.Failure)
+        assert ConstantFolder().fold(ast) == expect

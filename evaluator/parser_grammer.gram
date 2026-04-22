@@ -35,7 +35,9 @@ COMPARE_OPERATOR:
     | NEGATION (COMPARE_TERMINAL NEGATION)*
 
 COMPARE_TERMINAL:
+    | 'not' 'in'
     | 'is' 'not'
+    | 'in'
     | 'is'
     | '<='
     | '>='

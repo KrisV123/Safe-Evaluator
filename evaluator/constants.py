@@ -11,78 +11,117 @@ type atom_types = (
 #bool is skipped cause it's represented as int
 basic_atom_types = (str, int, float, NoneType, list, tuple)
 
-class CompareOP(IntEnum):
-    IS_NOT = auto()
+class Lexer_type(IntEnum):
+
+    # OPERATORS
+
+    # logic
+    OR = auto()
+    AND = auto()
+    NOT = auto()
+
+    # compare op
+    IN = auto()
     IS = auto()
-    LTE = auto()
-    GTE = auto()
-    LT = auto()
-    GT = auto()
     EQ = auto()
     NE = auto()
+    GT = auto()
+    LT = auto()
+    GE = auto()
+    LE = auto()
 
-"""is and is not is not added cause it is handled differently"""
-CompareOP_lookup = {
-    '<=': CompareOP.LTE,
-    '>=': CompareOP.GTE,
-    '<': CompareOP.LT,
-    '>': CompareOP.GT,
-    '==': CompareOP.EQ,
-    '!=': CompareOP.NE
-}
+    # numeric
+    PLUS = auto()
+    MINUS = auto()
+    STAR = auto()
+    DSTAR = auto()
+    SLASH = auto()
+    DSLASH = auto()
+    PERCENT = auto()
 
-CompareOP_lookup_reverse = {
-    CompareOP.LTE: '<=',
-    CompareOP.GTE: '>=',
-    CompareOP.LT: '<',
-    CompareOP.GT: '>',
-    CompareOP.EQ: '==',
-    CompareOP.NE: '!='
-}
-
-class Lexer_type(IntEnum):
-    OP = auto()
+    # REST
     STR = auto()
     INT = auto()
     FLOAT = auto()
     BOOL = auto()
     IDENT = auto()
     NONE = auto()
-    OPEN_LIST = auto()
-    CLOSE_LIST = auto()
-    OPEN_TUPLE = auto()
-    CLOSE_TUPLE = auto()
+    LSQB = auto()
+    RSQB = auto()
+    LPAR = auto()
+    RPAR = auto()
     COMMA = auto()
     EOF = auto()
 
-op_table: dict[str, dict[str | CompareOP, Callable]] = {
+class Parser_tok(IntEnum):
+
+    # OPERATORS
+
+    # logic
+    Or = auto()
+    And = auto()
+    Not = auto()
+
+    # compare op
+    In = auto()
+    NotIn = auto()
+    Is = auto()
+    IsNot = auto()
+    Eq = auto()
+    Ne = auto()
+    Gt = auto()
+    Lt = auto()
+    Ge = auto()
+    Le = auto()
+
+    #numeric
+    Plus = auto()
+    UnPlus = auto()
+    Minus = auto()
+    UnMinus = auto()
+    Mult = auto()
+    Power = auto()
+    TrueDiv = auto()
+    FloorDiv = auto()
+    Mod = auto()
+
+    #rest
+    Str = auto()
+    Int = auto()
+    Float = auto()
+    Bool = auto()
+    Ident = auto()
+    None_ = auto()
+
+
+op_table: dict[str, dict[Parser_tok, Callable]] = {
     'binary': {
-        '+': operator.add,
-        '-': operator.sub,
-        '*': operator.mul,
-        '/': operator.truediv,
-        '//': operator.floordiv,
-        '%': operator.mod,
-        '**': operator.pow,
-        'or': lambda x, y: x or y,
-        'and': lambda x, y: x and y,
-        'in': operator.contains,
-        'is': operator.is_
+        Parser_tok.Plus: operator.add,
+        Parser_tok.Minus: operator.sub,
+        Parser_tok.Mult: operator.mul,
+        Parser_tok.TrueDiv: operator.truediv,
+        Parser_tok.FloorDiv: operator.floordiv,
+        Parser_tok.Mod: operator.mod,
+        Parser_tok.Power: operator.pow,
+        Parser_tok.Or: lambda x, y: x or y,
+        Parser_tok.And: lambda x, y: x and y,
     },
     'unary': {
-        '+': operator.pos,
-        '-': operator.neg,
-        'not': operator.not_
+        Parser_tok.UnPlus: operator.pos,
+        Parser_tok.UnMinus: operator.neg,
+        Parser_tok.Not: operator.not_
     },
     'compare': {
-        CompareOP.IS_NOT: operator.is_not,
-        CompareOP.IS: operator.is_,
-        CompareOP.LT: operator.lt,
-        CompareOP.GT: operator.gt,
-        CompareOP.LTE: operator.le,
-        CompareOP.GTE: operator.ge,
-        CompareOP.EQ: operator.eq,
-        CompareOP.NE: operator.ne,
+        Parser_tok.In: lambda x, y: x in y,
+        Parser_tok.NotIn: lambda x, y: x not in y,
+        Parser_tok.IsNot: operator.is_not,
+        Parser_tok.Is: operator.is_,
+        Parser_tok.Lt: operator.lt,
+        Parser_tok.Gt: operator.gt,
+        Parser_tok.Le: operator.le,
+        Parser_tok.Ge: operator.ge,
+        Parser_tok.Eq: operator.eq,
+        Parser_tok.Ne: operator.ne,
     }
 }
 
@@ -121,74 +160,79 @@ is_is_not_typing: dict[tuple[object, object], set[object]] = {
 
 op_type_table:  dict[
                     str, dict[
-                        str | CompareOP,
+                        Parser_tok,
                         dict[
                             tuple, set[object]
                         ]
                     ]
                 ] = {
     'binary': {
-        '+': {
+        Parser_tok.Plus: {
             **basic_num_typing,
             (str, str): {str},
             (list, list): {list}
         },
-        '-': {
+        Parser_tok.Minus: {
             **basic_num_typing,
         },
-        '*': {
+        Parser_tok.Mult: {
             **basic_num_typing,
             (str, int): {str},
             (list, int): {list}
         },
-        '/': {
+        Parser_tok.TrueDiv: {
             (int, int): {float},
             (int, float): {float},
             (float, int): {float},
             (float, float): {float}
         },
-        '//': {
+        Parser_tok.FloorDiv: {
             (int, int): {int},
             (int, float): {float},
             (float, int): {float},
             (float, float): {float}
         },
-        '%': {
+        Parser_tok.Mod: {
             **basic_num_typing
         },
-        '**': {
+        Parser_tok.Power: {
             **basic_num_typing
         },
-        'or': and_or_typing,
-        'and': and_or_typing,
-        'in': {
-            (cont, typ): {int}
-            for typ in basic_atom_types
-            for cont in [list, tuple, str]
-        },
+        Parser_tok.Or: and_or_typing,
+        Parser_tok.And: and_or_typing,
     },
     'unary': {
-        '+': {
+        Parser_tok.UnPlus: {
             (int,): {int},
             (float,): {float}
         },
-        '-': {
+        Parser_tok.UnMinus: {
             (int,): {int},
             (float,): {float}
         },
-        'not': {
+        Parser_tok.Not: {
             (obj,): {int} for obj in basic_atom_types
         }
     },
     'compare': {
-        CompareOP.IS_NOT: is_is_not_typing,
-        CompareOP.IS: is_is_not_typing,
-        CompareOP.LT: basic_compare_typing,
-        CompareOP.GT: basic_compare_typing,
-        CompareOP.LTE: basic_compare_typing,
-        CompareOP.GTE: basic_compare_typing,
-        CompareOP.EQ: basic_compare_typing,
-        CompareOP.NE: basic_compare_typing,
+        Parser_tok.In: {
+            (typ, cont): {int}
+            for typ in basic_atom_types
+            for cont in [list, tuple, str]
+        },
+        Parser_tok.NotIn: {
+            (typ, cont): {int}
+            for typ in basic_atom_types
+            for cont in [list, tuple, str]
+        },
+        Parser_tok.IsNot: is_is_not_typing,
+        Parser_tok.Is: is_is_not_typing,
+        Parser_tok.Lt: basic_compare_typing,
+        Parser_tok.Gt: basic_compare_typing,
+        Parser_tok.Le: basic_compare_typing,
+        Parser_tok.Ge: basic_compare_typing,
+        Parser_tok.Eq: basic_compare_typing,
+        Parser_tok.Ne: basic_compare_typing,
     }
 }
 
@@ -203,20 +247,21 @@ class Lexer_tok:
 
 @dataclass(slots=True, frozen=False)
 class BinaryOp:
-    token: Lexer_tok
+    token: Parser_tok
     left_child: nodes
     right_child: nodes
 
 
 @dataclass(slots=True, frozen=False)
 class UnaryOp:
-    token: Lexer_tok
+    token: Parser_tok
     child: nodes
 
 
 @dataclass(slots=True, frozen=False)
 class Value:
-    token: Lexer_tok
+    token: Parser_tok
+    value: atom_types
 
 
 @dataclass(slots=True, frozen=False)
@@ -227,7 +272,7 @@ class Collection:
 
 @dataclass(slots=True, frozen=False)
 class CompareNode:
-    operators: list[CompareOP]
+    operators: list[Parser_tok]
     operands: list[nodes]
 
 
