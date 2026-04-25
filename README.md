@@ -23,7 +23,7 @@ rate_ok = compile_safe(
 )
 ```
 
-DISCLAIMER: Before using is recomended to study all safety features and decide, if they are sufficient. More in Security features
+DISCLAIMER: Before using is recomended to study all safety features and decide, if they are sufficient. More in 'Security features'
 
 ## Features
 
@@ -119,4 +119,4 @@ There are already build 4 functions with that tools to fully evaluate expression
 
 Main security feature, around which is whole project build is Evaluator as it creates "whilelist" of allowed functions. Also every component is expecting strict rules, so every component adds layer of protection. Parser contains tracker, that counts ammount of rules called in recursion stack and global amount of called rules against DDoS attacks (max values can be redefined in parser). If any of them is reached, exception will be raised. However complex expressions will not be blocked. For example, large repetetive exprssions like deeply nested parentesies will be blocked after reaching one of the limits, however power of large numbers will slow down in Evaluator. TypeChecker also creates another "whitelist" of allowed operations, cause python can have multiple functions in same symbol (for example + can be add or concatenate). In case, when values of variables are comming from outer systems, it is recomended to use evaluate_safe and compile_safe insted of default one. These functions takes JSON in python string to ensure, that values can't be for example malicious functions or objects with redefined dunder methods and translates it safely into python dict. However this translation can slow down evaluation in large ammount of expressions. In case, when JSON is not used, TypeChecker is doing similar security checks, but it does not work perfectly. Last important information is, that parser is heavily using memoization, so in case of DDoS attacks, expression can be evaluated quickly, but memory will be overloaded.
 
-THIS CODEBASE IS NOT 100% SECURITY SOLUTION, ONLY MUCH BETTER ALTERNATE FOR BASIC EVAL FUNCTION
+THIS CODEBASE IS NOT 100% SECURITY SOLUTION FOR EVERY TYPE OF ATTACK, ONLY MUCH BETTER ALTERNATE FOR BASIC EVAL FUNCTION
