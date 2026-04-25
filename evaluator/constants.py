@@ -158,6 +158,12 @@ is_is_not_typing: dict[tuple[object, object], set[object]] = {
     for val_2 in basic_atom_types
 }
 
+in_not_in_typing: dict[tuple[object, object], set[object]] = {
+    (typ, cont): {int}
+    for typ in basic_atom_types
+    for cont in [list, tuple, str]
+}
+
 op_type_table:  dict[
                     str, dict[
                         Parser_tok,
@@ -215,16 +221,8 @@ op_type_table:  dict[
         }
     },
     'compare': {
-        Parser_tok.In: {
-            (typ, cont): {int}
-            for typ in basic_atom_types
-            for cont in [list, tuple, str]
-        },
-        Parser_tok.NotIn: {
-            (typ, cont): {int}
-            for typ in basic_atom_types
-            for cont in [list, tuple, str]
-        },
+        Parser_tok.In: in_not_in_typing,
+        Parser_tok.NotIn: in_not_in_typing,
         Parser_tok.IsNot: is_is_not_typing,
         Parser_tok.Is: is_is_not_typing,
         Parser_tok.Lt: basic_compare_typing,
