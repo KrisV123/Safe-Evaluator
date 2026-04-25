@@ -1,0 +1,6 @@
+/evaluator/__pycache__
+/tests/__pycache__
+/.mypy_cache
+/.pytest_cache
+/tester.py
+/.vscode
