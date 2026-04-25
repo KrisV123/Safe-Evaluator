@@ -2,8 +2,6 @@
 
 Single expression interpreter based on subset of python for matematical and logical expressions with safety features. Safer alternative for eval function
 
-DISCLAIMER: Before using, it is recomended to study all safety features and decide, if they are sufficient
-
 Examples:
 
 ```python
@@ -24,6 +22,8 @@ rate_ok = compile_safe(
     {"reqs": 80, "max_r": 100, "burst": 10, "max_b": 20}
 )
 ```
+
+DISCLAIMER: Before using is recomended to study all safety features and decide, if they are sufficient. More in Security features
 
 ## Features
 
@@ -70,9 +70,11 @@ allowed functions:
 - equal
 - not equal
 
+
+
 ## Architecture
 
-Main motivation for that project are educational purposes but still usable product in production and no dependencies on external dependencies (for security and also educational purposes). 
+Main motivations for that project are educational purposes but also usable product in production and no dependencies or external dependencies (for security and also educational purposes). 
 
 Whole interpreter consists of 5 tools
 
@@ -82,49 +84,39 @@ Whole interpreter consists of 5 tools
 - ConstantFolder
 - Evaluator
 
-Each component is hand-written and any engine was used to generate them (only regex in few cases)
+Each component is hand-written and any engine was used to generate them (only regex in few cases for increasing performance)
 
 ### Lexer
 
-Takes string as imput and returns list of Lexer tokens (Lexer_tok object). Token stores Lexem type, lexem and position. Necessary for the functionality is only Lexem type, other two values are for debugging. Recognized lexems are
-
-- OR: or
-- AND: and
-- NOT: not
-- IN: in
-- IS: is
-- EQ: ==
-- NE !=
-- GT: >
-- LT: <
-- GE: >=
-- LE: <=
-- PLUS: +
-- MINUS: -
-- STAR: *
-- DSTAR: **
-- SLASH: /
-- DSLASH: //
-- PERCENT: %
-- STR: python string (can also be written with single or double quotes)
-- INT: python integer
-- FLOAT: python float
-- BOOL: python bool (True, False)
-- IDENT: python identificator (
-    also with similar python rules
-    1. allowed characters [a-z, A-Z, 0-9, _]
-    2. can't start with numbers
-)
-- NONE: None
-- LSQB: [
-- RSQB: ]
-- LPAR: (
-- RPAR: )
-- COMMA: ;
-- EOF: $ (internal character that will be added at the end of every lexem list)
-
-Skipped are characters '\t', '\r', 'n' and empty spaces, if they are not necessary to the syntax. For indentifiers, integers, floats and strings is used python regegex module for better performance in hot loopes
+Takes string as imput and returns list of Lexer tokens (Lexer_tok object). Token stores Lexem type, lexem and position. Necessary for the functionality is only Lexem type, other two values are for debugging. If lexer fail to tokenize text, it will raise SyntaxError with given position.
 
 ### Parser
 
-...
+Parkrat/Recursive-Decent parser, takes list of Lexer tokens and returns Abstract Syntax Tree. Parser rules based on PEG grammer in evaluator/parser_grammer.gram, which is imitating substet of python grammer. For more detailed rules are written in grammer file. If order of Lexer tokens can't match any rule, if will be returned Failure object with informations about fail.
+
+### TypeChecker
+
+Static type checker, that takes AST tree as input and returns resulting type based on rules defined in evaluator/constants.py. Every type is represented as set of every possible return type, even single type for easier implementation of UnionTypes a and working with them. Currently TypeChecker can't check content in containers. In case case of type error, will be returned TypeFail object with failing AST branch and wrong types.
+
+It can be also used separately, just to evaluate type of expression, if it is necessary. Inside a prebuild pipelines, TypeChecker is only used to check if type fail is returned. Other values are ignored.
+
+TypeChecker is not necessary for working interpreter, however it adds layer of security and prevents theoretical bugs in production (Like expression rasie type error on tuple in database, bud previous tuples are already modified. TypeChecker stops that before happening)
+
+### ConstantFolder
+
+Folds branches that have constant values in Constant node. Again, this is not necessary for fully functional interpreter but can increase performance.
+
+### Evaluator
+
+Last component in pipeline, that evaluate AST tree.
+
+
+
+There are already build 4 functions with that tools to fully evaluate expression, but in some cases, it is not necessary to use every tool. So feel free to build your own pipeline.
+
+
+## Security features
+
+Main security feature, around which is whole project build is Evaluator as it creates "whilelist" of allowed functions. Also every component is expecting strict rules, so every component adds layer of protection. Parser contains tracker, that counts ammount of rules called in recursion stack and global amount of called rules against DDoS attacks (max values can be redefined in parser). If any of them is reached, exception will be raised. However complex expressions will not be blocked. For example, large repetetive exprssions like deeply nested parentesies will be blocked after reaching one of the limits, however power of large numbers will slow down in Evaluator. TypeChecker also creates another "whitelist" of allowed operations, cause python can have multiple functions in same symbol (for example + can be add or concatenate). In case, when values of variables are comming from outer systems, it is recomended to use evaluate_safe and compile_safe insted of default one. These functions takes JSON in python string to ensure, that values can't be for example malicious functions or objects with redefined dunder methods and translates it safely into python dict. However this translation can slow down evaluation in large ammount of expressions. In case, when JSON is not used, TypeChecker is doing similar security checks, but it does not work perfectly. Last important information is, that parser is heavily using memoization, so in case of DDoS attacks, expression can be evaluated quickly, but memory will be overloaded.
+
+THIS CODEBASE IS NOT 100% SECURITY SOLUTION, ONLY MUCH BETTER ALTERNATE FOR BASIC EVAL FUNCTION
