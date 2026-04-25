@@ -47,28 +47,28 @@ allowed types:
 
 allowed functions:
 
-- add,
-- sub,
-- multiply,
-- truediv,
-- floordiv,
-- modulo,
-- power,
-- or,
-- and,
-- unary plus,
-- unary minus,
+- add
+- sub
+- multiply
+- truediv
+- floordiv
+- modulo
+- power
+- or
+- and
+- unary plus
+- unary minus
 - not
-- in,
-- not in,
+- in
+- not in
 - is
 - is not
-- lower,
-- greater,
-- lower equal,
-- greater equal,
-- equal,
-- not equal,
+- lower
+- greater
+- lower equal
+- greater equal
+- equal
+- not equal
 
 ## Architecture
 
@@ -86,42 +86,42 @@ Each component is hand-written and any engine was used to generate them (only re
 
 ### Lexer
 
-Takes string as imput and returns list of Lexer tokens. Token stores Lexem type, lexem and position. Necessary for the functionality is only Lexem type, other two values are for debugging. Recognized lexems are
+Takes string as imput and returns list of Lexer tokens (Lexer_tok object). Token stores Lexem type, lexem and position. Necessary for the functionality is only Lexem type, other two values are for debugging. Recognized lexems are
 
-OR: or
-AND: and
-NOT: not
-IN: in
-IS: is
-EQ: ==
-NE !=
-GT: >
-LT: <
-GE: >=
-LE: <=
-PLUS: +
-MINUS: -
-STAR: *
-DSTAR: **
-SLASH: /
-DSLASH: //
-PERCENT: %
-STR: python string (can also be written with single or double quotes)
-INT: python integer
-FLOAT: python float
-BOOL: python bool (True, False)
-IDENT: python identificator (
+- OR: or
+- AND: and
+- NOT: not
+- IN: in
+- IS: is
+- EQ: ==
+- NE !=
+- GT: >
+- LT: <
+- GE: >=
+- LE: <=
+- PLUS: +
+- MINUS: -
+- STAR: *
+- DSTAR: **
+- SLASH: /
+- DSLASH: //
+- PERCENT: %
+- STR: python string (can also be written with single or double quotes)
+- INT: python integer
+- FLOAT: python float
+- BOOL: python bool (True, False)
+- IDENT: python identificator (
     also with similar python rules
     1. allowed characters [a-z, A-Z, 0-9, _]
     2. can't start with numbers
 )
-NONE: None
-LSQB: [
-RSQB: ]
-LPAR: (
-RPAR: )
-COMMA: ;
-EOF: $ (internal character that will be added at the end of every lexem list)
+- NONE: None
+- LSQB: [
+- RSQB: ]
+- LPAR: (
+- RPAR: )
+- COMMA: ;
+- EOF: $ (internal character that will be added at the end of every lexem list)
 
 Skipped are characters '\t', '\r', 'n' and empty spaces, if they are not necessary to the syntax. For indentifiers, integers, floats and strings is used python regegex module for better performance in hot loopes
 
