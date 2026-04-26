@@ -99,13 +99,19 @@ Whole interpreter consists of 5 components
 
 Each component is hand-written and any engine was used to generate them (only regex in few cases for increasing performance)
 
+---
+
 ### Lexer
 
 Takes string as imput and returns list of Lexer tokens (Lexer_tok object). Token stores Lexem type, lexem and position. Necessary for the functionality is only Lexem type, other two values are for debugging. If lexer fail to tokenize text, it will raise SyntaxError with given position.
 
+---
+
 ### Parser
 
 Parkrat/Recursive-Decent parser, that takes list of Lexer tokens and returns Abstract Syntax Tree. Parser is based on PEG grammer rules in evaluator/parser_grammer.gram, which is imitating substet of python grammer. For more detailsm rules are written in grammer file. If order of Lexer tokens can't match any rule, Failure object will be returned with informations about the fail.
+
+---
 
 ### TypeChecker
 
@@ -115,15 +121,19 @@ It can be also used separately, just to evaluate type of expression, if it is ne
 
 TypeChecker is not necessary for working interpreter, however it adds layer of security and prevents theoretical bugs in production (like expression rasie type error on tuple in database, bud previous tuples are already modified. TypeChecker stops that before happening)
 
+---
+
 ### ConstantFolder
 
 Folds branches that have constant values in Constant node. Again, this is not necessary for fully functional interpreter but can increase performance.
+
+---
 
 ### Evaluator
 
 Last component in pipeline, that evaluate AST tree.
 
-
+---
 
 There are already build 4 functions with that tools to fully evaluate expression.
 
