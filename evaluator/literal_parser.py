@@ -868,7 +868,7 @@ def json_str_to_dict(json_str: str) -> dict:
             vars[key[9:]] = tuple(val)
     return vars
 
-def compile(expr: str, vars: dict[str, atom_types]) -> nodes:
+def build(expr: str, vars: dict[str, atom_types]) -> nodes:
     """
     Basic compiler, that compiles string into Abstract Syntax Tree,
     that could be interpreted with Evaluator. For more secure variables,
@@ -888,7 +888,7 @@ def compile(expr: str, vars: dict[str, atom_types]) -> nodes:
 
     return ConstantFolder().fold(ast)
 
-def compile_save(expr: str, json_vars: str) -> nodes:
+def build_save(expr: str, json_vars: str) -> nodes:
     """
     More secure compiler, that use json in string format,
     to evaluate variables. Recomended, if variables are taken from user.
@@ -904,7 +904,7 @@ def compile_save(expr: str, json_vars: str) -> nodes:
     """
 
     vars = json_str_to_dict(json_vars)
-    return compile(expr, vars)
+    return build(expr, vars)
 
 def evaluate(expr: str, vars: dict[str, atom_types]) -> atom_types:
     """
@@ -912,7 +912,7 @@ def evaluate(expr: str, vars: dict[str, atom_types]) -> atom_types:
     from python dictionary. For more secure variables, use evaluate_safe
     """
 
-    folded_ast = compile(expr, vars)
+    folded_ast = build(expr, vars)
     return Evaluator(vars).eval(folded_ast)
 
 def evaluate_safe(expr: str, json_vars: str) -> atom_types:
