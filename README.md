@@ -29,9 +29,9 @@ DISCLAIMER: Before using in production is recomended to study all safety feature
 
 4 main functions:
 - evaluate (main function for evalving expressions)
-- evaluate_safe (more secure evaluate function, which uses JSON as imput for variables)
+- evaluate_safe (more secure evaluate function, which uses JSON as input for variables)
 - build (function for precompiling expression to AST)
-- build_safe (more secure compile function, which uses JSON as imput for variables)
+- build_safe (more secure compile function, which uses JSON as input for variables)
 
 and every component can also be used separately
 
