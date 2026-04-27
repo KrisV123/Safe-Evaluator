@@ -87,7 +87,7 @@ Library does not use any external libraries, so anything has to be installed add
 
 ## Architecture
 
-Main motivations for that project are educational purposes but also usable product in production and no external dependencies (for security and also educational purposes). 
+Main motivations for this project are educational purposes but also usable product in production and no external dependencies (for security and also educational purposes). 
 
 Whole interpreter consists of 5 components
 
@@ -103,7 +103,7 @@ Each component is hand-written and any engine was used to generate them (only re
 
 ### Lexer
 
-Takes string as imput and returns list of Lexer tokens (Lexer_tok object). Token stores Lexeme type, lexeme and position. Necessary for the functionality is only Lexeme type, other two values are for debugging. If lexer fail to tokenize text, it will raise SyntaxError with given position.
+Takes string as input and returns list of lexer tokens (Lexer_tok object). Token stores lexeme type, lexeme and position. Necessary for the functionality is only Lexeme type, other two values are for debugging purposes. If lexer fail to tokenize text, it will raise SyntaxError with given position.
 
 ---
 
@@ -149,7 +149,7 @@ Same as evaluate, but takes string with JSON, that contains variables to evaluat
 
 Takes string with expression and python dictionary with variables to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Creat, if you need to calculate same expression with multiple set of variables. AST can be executed with Evaluator
 
-EXAMPLE:
+Example:
 
 ```python
 from evaluator.literal_parser import build, Evaluator
@@ -186,7 +186,7 @@ This interpreter is designed to reduce risks compared to Python’s built-in eva
 
 ### Restricted execution model
 
-Only a predefined subset of Python syntax is supported
+Only a predefined subset of Python syntax is supported.
 No function calls, attribute access, or arbitrary object interaction
 
 This prevents execution of arbitrary Python code (e.g. __import__, file access, or method calls).
@@ -200,7 +200,7 @@ Each operation is mapped to a controlled implementation, preventing unexpected b
 
 This reduces the attack surface, but still allows expressions that may be computationally expensive.
 
-### Safe input handling (evaluate_safe, compile_safe)
+### Safe input handling (evaluate_safe, build_safe)
 
 Accepts variables as JSON strings instead of Python objects
 
