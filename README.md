@@ -178,7 +178,7 @@ ast = build(expr, variables)
 answer = Evaluator(variables).eval(ast)
 ```
 
-3. build_safe(expr: str, vars: str)
+4. build_safe(expr: str, vars: str)
 
 Same as build, but takes string with JSON, that contains variables
 
