@@ -1,6 +1,6 @@
 # Safe Evaluator
 
-Single expression interpreter based on subset of python 3.12 for matematical and logical expressions with safety features. Safer alternative for eval function
+Single expression interpreter based on a subset of Python 3.12 for mathematical and logical expressions with safety features. A safer alternative to the eval function.
 
 Examples:
 
@@ -23,17 +23,17 @@ rate_ok = build_safe(
 )
 ```
 
-DISCLAIMER: Before using in production is recomended to study all safety features and decide, if they are sufficient. More in category "Security features"
+DISCLAIMER: Before using this in production, it is recommended to study all safety features and decide whether they are sufficient. See the "Security features" section for more details.
 
 ## Features
 
 4 main functions:
-- evaluate (main function for evalving expressions)
-- evaluate_safe (more secure evaluate function, which uses JSON as input for variables)
-- build (function for precompiling expression to AST)
-- build_safe (more secure compile function, which uses JSON as input for variables)
+- evaluate (main function for evaluating expressions)
+- evaluate_safe (more secure version, uses JSON input for variables)
+- build (function for precompiling an expression into an AST)
+- build_safe (more secure compile function, uses JSON input)
 
-and every component can also be used separately
+Each component can also be used separately.
 
 allowed types:
 
@@ -74,7 +74,7 @@ Operators logic is the same as in python
 
 ## How to use it
 
-You only need to import requested function from /evaluator/literal_parser
+You only need to import the required function from /evaluator/literal_parser.
 
 Example:
 
@@ -82,12 +82,12 @@ Example:
 from evaluator.literal_parser import evaluate
 ```
 
-Library does not use any external libraries, so anything has to be installed additionaly
+The library does not use any external dependencies, so nothing needs to be installed.
 
 
 ## Architecture
 
-Main motivations for this project are educational purposes but also usable product in production and no external dependencies (for security and also educational purposes). 
+The main motivations for this project are educational purposes, but also to create a usable production-ready product with no external dependencies (for both security and educational reasons).
 
 Whole interpreter consists of 5 components
 
@@ -97,43 +97,61 @@ Whole interpreter consists of 5 components
 - ConstantFolder
 - Evaluator
 
-Each component is hand-written and any engine was used to generate them (only regex in few cases for increasing performance)
+Each component is handwritten, no parser generators are used (only regex in a few cases for performance).
 
 ---
 
 ### Lexer
 
-Takes string as input and returns list of lexer tokens (Lexer_tok object). Token stores lexeme type, lexeme and position. Necessary for the functionality is only Lexeme type, other two values are for debugging purposes. If lexer fail to tokenize text, it will raise SyntaxError with given position.
+Takes a string as input and returns a list of lexer tokens (Lexer_tok objects).
+Each token stores the lexeme type, value, and position. Only the type is required, the rest is for debugging.
+
+If tokenization fails, a SyntaxError is raised with the position.
 
 ---
 
 ### Parser
 
-Packrat/Recursive-Decent parser, that takes list of Lexer tokens and returns Abstract Syntax Tree. Parser is based on PEG grammer rules in evaluator/parser_grammer.gram, which is imitating substet of python grammer. For more detailsm rules are written in grammer file. If order of Lexer tokens can't match any rule, Failure object will be returned with informations about the fail.
+A Packrat / recursive-descent parser that takes lexer tokens and returns an Abstract Syntax Tree (AST).
+It is based on PEG grammar rules defined in evaluator/parser_grammer.gram, mimicking a subset of Python grammar.
+
+If parsing fails, a Failure object is returned with error details.
 
 ---
 
 ### TypeChecker
 
-Static type checker, that takes AST tree as input and returns resulting type based on rules defined in evaluator/constants.py. Every type is represented as set of every possible return type (UnionType), even single type for easier implementation of UnionTypes and working with them. Currently TypeChecker can't check content in containers (shallow typing). In case of type error, TypeFail object will be returned with failing AST branch and wrong types.
+A static type checker that takes an AST and returns the resulting type based on rules in evaluator/constants.py.
+
+Each type is represented as a set of possible types (UnionType), even for single types.
 
 It can be also used separately, just to evaluate type of expression, if it is necessary. Inside a prebuild pipelines, TypeChecker is only used to check, if type fail is returned. Other values are ignored.
 
-TypeChecker is not necessary for working interpreter, however it adds layer of security and prevents theoretical bugs in production (like expression rasie type error on tuple in database, bud previous tuples are already modified. TypeChecker stops that before happening)
+Limitations:
+
+- Cannot check contents inside containers (shallow typing)
+
+If a type error occurs, a TypeFail object is returned with details.
+
+Not strictly required, but adds safety and prevents runtime issues.
 
 ---
 
 ### ConstantFolder
 
-Folds branches that have constant values in Constant node. Again, this is not necessary for fully functional interpreter but can increase performance.
+Optimizes the AST by folding constant expressions into single nodes.
+
+Not required, but improves performance.
 
 ---
 
 ### Evaluator
 
-Last component in pipeline, that evaluate AST tree.
+The final component that evaluates the AST.
 
 ---
+
+## Build-in functions
 
 There are already build 4 functions with that tools to fully evaluate expression.
 
@@ -147,7 +165,7 @@ Same as evaluate, but takes string with JSON, that contains variables to evaluat
 
 3. build(expr: string, vars: dict[str, atom_types])
 
-Takes string with expression and python dictionary with variables to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Creat, if you need to calculate same expression with multiple set of variables. AST can be executed with Evaluator
+Takes string with expression and python dictionary with variables to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Great, if you need to calculate same expression with multiple sets of variables. AST can be executed with Evaluator
 
 Example:
 
@@ -165,19 +183,18 @@ answer = Evaluator(variables).eval(ast)
 Same as build, but takes string with JSON, that contains variables
 
 
-In some cases, it is not necessary to use every component. So feel free to build your own pipeline.
+In some cases, it is not necessary to use every component. So feel free to build your own pipelines.
 
 
 ## Optimalizations
 
-As python itself is slow language, few optimalizations had to be used, to be usable.
+Since Python is relatively slow, several optimizations were used:
 
-1. Memoization of rules in Parser
+1. Memoization in the Parser
 2. Constant Folding
 3. Short-circuit logic
-3. Python regex engine for Lexer in few cases
-
-and few python optimalization tricks
+4. Python regex engine for Lexer in few cases
+5. General Python performance tricks
 
 
 ## Security features
@@ -191,6 +208,8 @@ No function calls, attribute access, or arbitrary object interaction
 
 This prevents execution of arbitrary Python code (e.g. __import__, file access, or method calls).
 However, it does not protect against resource-intensive computations within the allowed subset.
+
+Also, library does not use any external libraries to prevent supply chain attack.
 
 ### Whitelisted operations
 
