@@ -1,5 +1,8 @@
 /evaluator/__pycache__
+/evaluator/workers/__pycache__
+/evaluator/tools/__pycache__
 /tests/__pycache__
+/__pycache__
 /.mypy_cache
 /.pytest_cache
 /tester.py

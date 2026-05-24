@@ -1,6 +1,5 @@
 from __future__ import annotations
 import re
-import json
 
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -855,79 +854,3 @@ class ConstantFolder(Evaluator):
             ))
         else:
             return node
-
-def json_str_to_dict(json_str: str) -> dict:
-    """
-    converts json string to python dictionary.
-    If json key starts with __tuple__, list value will be converted to tuple
-    """
-
-    vars: dict = json.loads(json_str)
-    for key, val in vars.copy().items():
-        if key.startswith('__tuple__'):
-            vars[key[9:]] = tuple(val)
-    return vars
-
-def build(expr: str, vars: dict[str, atom_types]) -> nodes:
-    """
-    Basic compiler, that compiles string into Abstract Syntax Tree,
-    that could be interpreted with Evaluator. For more secure variables,
-    use compile_safe
-    """
-
-    tokens = Lexer(expr).tokenize()
-    ast = Parser(tokens).parse()
-
-    if isinstance(ast, Parser.Failure):
-        raise RuntimeError(ast)
-
-    typ = TypeChecker(vars).check(ast)
-
-    if isinstance(typ, TypeChecker.TypeFail):
-        raise RuntimeError(typ)
-
-    return ConstantFolder().fold(ast)
-
-def build_save(expr: str, json_vars: str) -> nodes:
-    """
-    More secure compiler, that use json in string format,
-    to evaluate variables. Recomended, if variables are taken from user.
-    If you want to add tuple, create list, which key starts with __tuple__.\n
-    Example:\n
-    ```json
-    {"__tuple__my_tuple": [1,2,3]}
-    ```
-    will be interpreted as
-    ```python
-    {"my_tuple": (1,2,3)}
-    ```
-    """
-
-    vars = json_str_to_dict(json_vars)
-    return build(expr, vars)
-
-def evaluate(expr: str, vars: dict[str, atom_types]) -> atom_types:
-    """
-    Basic interpreter, that have all features and evaluate variables
-    from python dictionary. For more secure variables, use evaluate_safe
-    """
-
-    folded_ast = build(expr, vars)
-    return Evaluator(vars).eval(folded_ast)
-
-def evaluate_safe(expr: str, json_vars: str) -> atom_types:
-    """
-    More secure interpreter, that use json in string format,
-    to evaluate variables. Recomended, if variables are taken from user.
-    If you want to add tuple, create list, which key starts with __tuple__.\n
-    Example:\n
-    ```json
-    {"__tuple__my_tuple": [1,2,3]}
-    ```
-    will be interpreted as
-    ```python
-    {"my_tuple": (1,2,3)}
-    ```
-    """
-
-    return evaluate(expr, json_str_to_dict(json_vars))
