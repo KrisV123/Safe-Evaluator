@@ -1,7 +1,8 @@
 from evaluator.literal_parser import Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
 from evaluator.constants import atom_types, nodes
-from evaluator.tools.other import json_str_to_dict, deserialize_ast
+from evaluator.tools.other import json_str_to_dict, deserialize_ast, deserialize_value
 
+import json
 from platform import system
 
 OS = system()
@@ -9,8 +10,6 @@ if OS == 'Windows':
     from evaluator.tools.windows_sandbox import WindowsProcessAPI
 elif OS in ('Linux', 'Darwin'):
     from evaluator.tools.unix_sandbox import UnixProcessAPI
-
-import json
 
 def build(expr: str, vars: dict[str, atom_types]) -> nodes:
     """
@@ -64,7 +63,7 @@ def build_isolated(expr: str, json_vars: str) -> nodes:
         - adress space: 200 MB
     
     WINDOWS ONLY:
-        - handles: 181
+        - handles: 481
     """
 
     data = json.dumps({'expr': expr, 'vvars': json_vars})
@@ -131,7 +130,7 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
         - adress space: 200 MB
     
     WINDOWS ONLY:
-        - handles: 181
+        - handles: 481
     """
 
     data = json.dumps({'expr': expr, 'vvars': json_vars})
@@ -139,7 +138,8 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
 
     if OS in ('Linux', 'Darwin'):
         unix_api = UnixProcessAPI #type:ignore
-        return unix_api.create_unix_process(cmd_args, data)
+        decode_data = unix_api.create_unix_process(cmd_args, data)
+        return deserialize_value(json.loads(decode_data))
     elif OS == 'Windows':
         win_api = WindowsProcessAPI #type:ignore
         new_win_data = win_api.create_windows_process(
@@ -150,7 +150,7 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
         if isinstance(new_win_data, win_api.Error):
             raise RuntimeError(decode_data)
         elif isinstance(new_win_data, win_api.Output):
-            return evaluate(decode_data, {})
+            return deserialize_value(json.loads(decode_data))
         else:
             raise RuntimeError('Process returned invalid object')
     else:

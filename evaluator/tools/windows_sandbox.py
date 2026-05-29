@@ -266,7 +266,7 @@ class WindowsProcessAPI:
         threading.Thread(
             target=cls._watchdog_handles,
             daemon=True,
-            args=(pi, 81 + 100) # 81 cca minimum + 100 extra
+            args=(pi, 81 + 400) # 81 cca minimum + 400 extra
         ).start()
 
         cls.kernel32.ResumeThread(pi.hThread)

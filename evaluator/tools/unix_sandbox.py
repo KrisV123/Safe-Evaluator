@@ -8,7 +8,7 @@ except ImportError:
 class UnixProcessAPI:
 
     @classmethod
-    def limit_unix_resource(cls) -> None:
+    def _limit_unix_resource(cls) -> None:
         setrlimit = resource.setrlimit # type: ignore
         setrlimit(resource.RLIMIT_CPU, (5, 5)) # type: ignore
         setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, -1)) # type: ignore
@@ -23,7 +23,7 @@ class UnixProcessAPI:
             text=True,
             capture_output=True,
             timeout=5,
-            preexec_fn=cls.limit_unix_resource
+            preexec_fn=cls._limit_unix_resource
         )
         if p.returncode != 0:
             raise RuntimeError(p.stderr)
