@@ -1,5 +1,5 @@
 from __future__ import annotations
-from evaluator.constants import (
+from evaluator.interpreter.constants import (
     nodes, Value, UnaryOp, BinaryOp, Constant,
     CompareNode, Collection, Parser_tok, atom_types
 )
@@ -26,6 +26,13 @@ class T_serialized_atom(TypedDict):
 
 
 def serialize_value(value: atom_types) -> T_serialized_atom:
+    """
+    Serialize basic python value into TypedDict,
+    that holds information about value and type.
+
+    Can serialize: str, int, float, bool, None, list, tuple
+    """
+
     typ = type(value).__name__
     if isinstance(value, (list, tuple)):
         collection = [serialize_value(x) for x in value]
@@ -38,6 +45,11 @@ def serialize_value(value: atom_types) -> T_serialized_atom:
         )
 
 def deserialize_value(data: T_serialized_atom) -> atom_types:
+    """
+    Deserialize data from function serialize_value()
+    in T_serialized_atom TypedDict structure
+    """
+
     typ, value = data["type"], data["value"]
     if typ in ("list", "tuple"):
         value = cast(list, value)
@@ -146,6 +158,6 @@ def _deserialize_ast_worker(dict_ast: dict) -> nodes:
             )
         case 'Constant':
             val = deserialize_value(dict_ast['value'])
-            return Constant(val) # TREBA SPRAVNE OTYPOVAT FUNKCIU OUTPUT
+            return Constant(val)
 
     raise RuntimeError('JSON can not recognized as node')

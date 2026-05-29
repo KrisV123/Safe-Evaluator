@@ -2,10 +2,9 @@ import pytest
 import json
 
 from evaluator.pipelines import build_isolated, evaluate_isolated
-from evaluator.literal_parser import Parser
-from evaluator.constants import (
-    Lexer_type, nodes, Parser_tok, Constant, atom_types,
-    Lexer_tok, BinaryOp, UnaryOp, Value, Collection, CompareNode
+from evaluator.interpreter.constants import (
+    nodes, Parser_tok, Constant, atom_types,
+    BinaryOp, UnaryOp, Value, Collection, CompareNode
 )
 
 class Test_build_isolated:

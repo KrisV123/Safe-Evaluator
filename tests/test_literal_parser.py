@@ -1,13 +1,13 @@
 import pytest
 from types import NoneType
-from evaluator.literal_parser import Lexer, Parser, TypeChecker, ConstantFolder
+from evaluator.interpreter.stages import Lexer, Parser, TypeChecker, ConstantFolder
 from evaluator.pipelines import evaluate
-from evaluator.constants import (
+from evaluator.interpreter.constants import (
     atom_types, Lexer_type, nodes, Parser_tok,
     Lexer_tok, BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant
 )
 
-from evaluator.constants import nodes
+from evaluator.interpreter.constants import nodes
 
 class Test_Lexer:
 

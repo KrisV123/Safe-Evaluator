@@ -1,5 +1,5 @@
-from evaluator.literal_parser import Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
-from evaluator.constants import atom_types, nodes
+from evaluator.interpreter.stages import Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
+from evaluator.interpreter.constants import atom_types, nodes
 from evaluator.tools.other import json_str_to_dict, deserialize_ast, deserialize_value
 
 import json

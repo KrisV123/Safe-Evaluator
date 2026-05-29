@@ -5,10 +5,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import NoneType
 from itertools import product
-from evaluator.constants import (
+from evaluator.interpreter.constants import (
     op_table, op_type_table,
-    atom_types, Lexer_type, Parser_tok, nodes,
-    Lexer_tok, BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant
+    atom_types, Lexer_type, Parser_tok, nodes, Lexer_tok,
+    BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant
 )
 
 @dataclass(slots=True, frozen=True)
