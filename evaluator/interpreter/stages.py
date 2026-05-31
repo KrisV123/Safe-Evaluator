@@ -718,7 +718,20 @@ class TypeChecker:
 
 
 class Evaluator:
-    """Evaluator, that execute AST tree with dictionary prefilled with variables"""
+    """
+    Evaluator, that execute AST tree with dictionary prefilled with variables.
+    Evaluator can accept as variables dictionary and string in JSON format.
+    If you want to add tuple, create list, which key starts with __tuple__.\n
+    Example:\n
+    ```json
+    {"__tuple__my_tuple": [1,2,3]}
+    ```
+    will be interpreted as
+    ```python
+    {"my_tuple": (1,2,3)}
+    ```
+
+    """
 
     __slots__ = ['_frozen', 'vars']
 
