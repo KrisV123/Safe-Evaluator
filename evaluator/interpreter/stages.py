@@ -5,13 +5,14 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from types import NoneType
 from itertools import product
+
 from evaluator.interpreter.constants import (
     op_table, op_type_table,
     atom_types, Lexer_type, Parser_tok, nodes, Lexer_tok,
     BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant
 )
+from evaluator.tools.other import json_str_to_dict
 
-@dataclass(slots=True, frozen=True)
 class Lexer:
     """
     Class, that takes subclass of python code in string object
@@ -19,7 +20,18 @@ class Lexer:
     lexem and position
     """
 
-    string: str
+    __slots__ = ['_frozen', 'string']
+
+    def __init__(self, string: str):
+        object.__setattr__(self, '_frozen', False)
+        self.string = string
+        object.__setattr__(self, '_frozen', True)
+    
+    def __setattr__(self, name: str, value: object) -> None:
+        if not getattr(self, '_frozen'):
+            object.__setattr__(self, name, value)
+        else:
+            raise AttributeError('Object is immutable')
 
     keyword_op = {
         'or': Lexer_type.OR,
@@ -577,7 +589,6 @@ class Parser:
         return Collection(tuple, collection)
 
 
-@dataclass(slots=True, frozen=True)
 class TypeChecker:
     """
     Type checker, that staticly check expression
@@ -585,7 +596,19 @@ class TypeChecker:
     bool values are replaced with integers
     """
 
-    vars: dict[str, atom_types]
+    #vars: dict[str, atom_types]
+    __slots__ = ['_frozen', 'vars']
+
+    def __init__(self, vars: dict[str, atom_types] | str):
+        object.__setattr__(self, '_frozen', False)
+        self.vars = json_str_to_dict(vars) if isinstance(vars, str) else vars
+        object.__setattr__(self, '_frozen', True)
+    
+    def __setattr__(self, name: str, value: object) -> None:
+        if not getattr(self, '_frozen'):
+            object.__setattr__(self, name, value)
+        else:
+            raise AttributeError('Object is immutable')
 
     @dataclass(slots= True, frozen=True)
     class TypeFail:
@@ -694,11 +717,21 @@ class TypeChecker:
         return {int}
 
 
-@dataclass(slots=True, frozen=True)
 class Evaluator:
     """Evaluator, that execute AST tree with dictionary prefilled with variables"""
 
-    vars: dict[str, atom_types]
+    __slots__ = ['_frozen', 'vars']
+
+    def __init__(self, vars: dict[str, atom_types] | str):
+        object.__setattr__(self, '_frozen', False)
+        self.vars = json_str_to_dict(vars) if isinstance(vars, str) else vars
+        object.__setattr__(self, '_frozen', True)
+    
+    def __setattr__(self, name: str, value: object) -> None:
+        if not getattr(self, '_frozen'):
+            object.__setattr__(self, name, value)
+        else:
+            raise AttributeError('Object is immutable')
 
     def eval(self, node: nodes) -> atom_types:
         """Method to execute AST tree"""

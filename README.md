@@ -157,7 +157,7 @@ Not required, but improves performance.
 
 ### Evaluator
 
-The final component that evaluates the AST.
+The final component that evaluates AST. Evaluator can accept as a variables dictionary, but also string in JSON format.
 
 ---
 
