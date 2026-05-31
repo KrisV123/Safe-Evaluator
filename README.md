@@ -21,17 +21,27 @@ rate_ok = build_safe(
     "reqs < max_r and burst < max_b",
     '{"reqs": 80, "max_r": 100, "burst": 10, "max_b": 20}'
 )
+policy_result = build_isolated(
+    "amount >= min_amount and tier == 'pro'",
+    '{"amount": 250, "min_amount": 100, "tier": "pro"}'
+)
+runtime_check = evaluate_isolated(
+    "load < max_load and errors == 0",
+    '{"load": 0.73, "max_load": 0.9, "errors": 0}'
+)
 ```
 
 DISCLAIMER: Before using this in production, it is recommended to study all safety features and decide whether they are sufficient. See the "Security features" section for more details.
 
 ## Features
 
-4 main functions:
+6 main functions:
 - evaluate (main function for evaluating expressions)
 - evaluate_safe (more secure version, uses JSON input for variables)
 - build (function for precompiling an expression into an AST)
 - build_safe (more secure compile function, uses JSON input)
+- build_isolated (safest compile function, that at the top use process-level isolation)
+- evaluate_isolated (safest evaluating function, that at the top use process-level isolation)
 
 Each component can also be used separately.
 
@@ -74,12 +84,12 @@ Operators logic is the same as in python
 
 ## How to use it
 
-You only need to import the required function from /evaluator/literal_parser.
+You only need to import the required function from /evaluator/pipelines.
 
 Example:
 
 ```python
-from evaluator.literal_parser import evaluate
+from evaluator.pipelines import evaluate
 ```
 
 The library does not use any external dependencies, so nothing needs to be installed.
@@ -112,7 +122,7 @@ If tokenization fails, a SyntaxError is raised with the position.
 
 ### Parser
 
-A Packrat / recursive-descent parser that takes lexer tokens and returns an Abstract Syntax Tree (AST).
+A Packrat parser that takes lexer tokens and returns an Abstract Syntax Tree (AST).
 It is based on PEG grammar rules defined in evaluator/parser_grammer.gram, mimicking a subset of Python grammar.
 
 If parsing fails, a Failure object is returned with error details.
@@ -153,24 +163,25 @@ The final component that evaluates the AST.
 
 ## Build-in functions
 
-There are already build 4 functions with that tools to fully evaluate expression.
+There are already 6 built-in functions using these tools to fully evaluate expression.
 
-1. evaluate(expr: string, vars: dict[str, atom_types])
+1. evaluate(expr: str, vars: dict[str, atom_types])
 
-Takes string with expression and python dictionary with variables to evaluate expression
+Takes string with expression and python dictionary with variables to evaluate expression.
 
 2. evaluate_safe(expr: str, vars: str)
 
-Same as evaluate, but takes string with JSON, that contains variables to evaluate expression
+Same as evaluate, but takes string with JSON, that contains variables to evaluate expression.
 
-3. build(expr: string, vars: dict[str, atom_types])
+3. build(expr: str, vars: dict[str, atom_types])
 
-Takes string with expression and python dictionary with variables to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Great, if you need to calculate same expression with multiple sets of variables. AST can be executed with Evaluator
+Takes string with expression and python dictionary with variables to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Great, if you need to calculate same expression with multiple sets of variables. AST can be executed with Evaluator.
 
 Example:
 
 ```python
-from evaluator.literal_parser import build, Evaluator
+from evaluator.pipelines import build
+from evaluator.interpreter.stages import Evaluator
 
 variables = {"x": 6}
 expr = "x + 7"
@@ -181,6 +192,14 @@ answer = Evaluator(variables).eval(ast)
 4. build_safe(expr: str, vars: str)
 
 Same as build, but takes string with JSON, that contains variables
+
+5. evaluate_isolated(expr: str, vars: str)
+
+Same as evaluate_safe, but evaluate expression in separate process with limited resources.
+
+6. build_isolated(expr: str, vars: str)
+
+Same as build_safe, but build AST in separate process with limited resources.
 
 
 In some cases, it is not necessary to use every component. So feel free to build your own pipelines.
@@ -229,7 +248,28 @@ This prevents injection of:
 - objects with overridden dunder methods
 - callable values
 
-However JSON parsing adds overhead. Recomended only if it is necessary or problem is not computationaly expencive.
+However JSON parsing adds overhead. Recommended only when necessary or when the problem is not computationally expensive.
+
+### Sandboxing (evaluate_isolated, build_isolated)
+
+Specific functions evaluate themselves in a separate process with limited resources
+
+Checked resources:
+
+- execution time
+- memory usage
+- virtual memory (for UNIX)
+- number of file descriptors (for UNIX)
+- number of handles (for Windows)
+
+This prevents:
+
+- overloading CPU
+- overloading RAM
+- uncontrolled creation of kernel objects and opened files
+- crashing does not influence main process
+
+However, this creates significant overhead when spawning processes and resource limiting is not deterministic. Recommended only when security is the top priority.
 
 ### Static type checking (TypeChecker)
 
@@ -275,20 +315,12 @@ This project improves safety compared to eval, but does not provide full protect
 
 It does not prevent:
 
-- CPU exhaustion
-- e.g. 2 ** 100000000
-- memory exhaustion
-- large lists or deeply nested structures
+- deterministic and pre-execution resource limiting
 - long evaluation time from valid expressions
 - logical misuse of expressions
 - e.g. always-true conditions
 - side-channel or timing attacks
-
-Additionally:
-
-- No isolation from the Python process (no sandboxing)
-- No timeout or execution limits in the evaluator
-- Type system is not strict enough to guarantee full safety
+- type system is not strict enough to guarantee full safety
 
 ### Summary
 
@@ -297,5 +329,6 @@ This interpreter is significantly safer than using eval directly due to:
 - strict syntax control
 - operation whitelisting
 - optional safe input handling
+- resource limiting
 
 However, it should be used with care in production systems, especially when evaluating untrusted input at scale.
