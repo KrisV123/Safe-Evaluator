@@ -730,7 +730,6 @@ class Evaluator:
     ```python
     {"my_tuple": (1,2,3)}
     ```
-
     """
 
     __slots__ = ['_frozen', 'vars']
@@ -739,7 +738,7 @@ class Evaluator:
         object.__setattr__(self, '_frozen', False)
         self.vars = json_str_to_dict(vars) if isinstance(vars, str) else vars
         object.__setattr__(self, '_frozen', True)
-    
+
     def __setattr__(self, name: str, value: object) -> None:
         if not getattr(self, '_frozen'):
             object.__setattr__(self, name, value)
