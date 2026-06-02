@@ -35,17 +35,17 @@ class Test_build_isolated:
         assert ast == expect
 
     @pytest.mark.parametrize(
-        "expr, vvars, expect",
+        "expr, types, expect",
         [
             pytest.param(
                 "x",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Value(Parser_tok.Ident, "x"),
                 id="ident"
             ),
             pytest.param(
                 "x + 6",
-                '{"x": 5}',
+                '{"x": "int"}',
                 BinaryOp(
                     token=Parser_tok.Plus,
                     left_child=Value(Parser_tok.Ident, "x"),
@@ -55,7 +55,7 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "-x",
-                '{"x": 5}',
+                '{"x": "int"}',
                 UnaryOp(
                     token=Parser_tok.UnMinus,
                     child=Value(Parser_tok.Ident, "x")
@@ -64,7 +64,7 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "[1, x, 3]",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Collection(
                     typ=list,
                     collection=[
@@ -77,7 +77,7 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "(1, x, 3)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Collection(
                     typ=tuple,
                     collection=[
@@ -90,7 +90,7 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "1 < x < 3",
-                '{"x": 5}',
+                '{"x": "int"}',
                 CompareNode(
                     operands=[
                         Constant(1),
@@ -103,67 +103,67 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "(1 + 2) < (2 + 3)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(True),
                 id="compare_folded"
             ),
             pytest.param(
                 "5 + 6 * 2",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(17),
                 id="arith_precedence"
             ),
             pytest.param(
                 "(5 + 6) * 2",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(22),
                 id="arith_parentheses"
             ),
             pytest.param(
                 "-(3 + 4)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(-7),
                 id="unary_minus_nested"
             ),
             pytest.param(
                 "+(2 * 3 + 4)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(10),
                 id="unary_plus_nested"
             ),
             pytest.param(
                 "not (1 < 2)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(False),
                 id="unary_not_compare"
             ),
             pytest.param(
                 "[1 + 2, 3 * 4, -(5 - 7)]",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant([3, 12, 2]),
                 id="list_all_folded_complex"
             ),
             pytest.param(
                 "([1 + 2, 3], (4 * 5, 6 + 7))",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(([3, 3], (20, 13))),
                 id="nested_collections"
             ),
             pytest.param(
                 "1 < 2 < 3 < 4",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(True),
                 id="chained_compare_long_true"
             ),
             pytest.param(
                 "(1 + 2) < (3 * 2) <= (8 - 2)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(True),
                 id="mixed_compare_folded"
             ),
             pytest.param(
                 "x + (2 * 3)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 BinaryOp(
                     token=Parser_tok.Plus,
                     left_child=Value(Parser_tok.Ident, "x"),
@@ -173,7 +173,7 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "-(x + 2)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 UnaryOp(
                     token=Parser_tok.UnMinus,
                     child=BinaryOp(
@@ -186,7 +186,7 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "[1, x + 2, 3 * 4]",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Collection(
                     typ=list,
                     collection=[
@@ -203,7 +203,7 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "1 < x < 3 <= 4",
-                '{"x": 5}',
+                '{"x": "int"}',
                 CompareNode(
                     operands=[
                         Constant(1),
@@ -221,27 +221,27 @@ class Test_build_isolated:
             ),
             pytest.param(
                 "((1 + 2) * (3 + 4)) == (21)",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(True),
                 id="compare_full_arith_eq"
             ),
             pytest.param(
                 "True or x",
-                '{"x": 5}',
+                '{"x": "int"}',
                 Constant(True),
                 id="binary_short_circuit"
             )
         ]
     )
-    def test_build_isolated_complex(self, expr: str, vvars: str, expect: nodes):
-        ast = build_isolated(expr, vvars)
+    def test_build_isolated_complex(self, expr: str, types: str, expect: nodes):
+        ast = build_isolated(expr, types)
         assert ast == expect
 
 
 class Test_evaluate_isolated:
 
     @pytest.mark.parametrize(
-        "expr, vars",
+        "expr, vvars",
         [
             # binary
             pytest.param("variable + other", {"variable": 5, "other": 2}, id="add"),
@@ -286,13 +286,13 @@ class Test_evaluate_isolated:
             pytest.param("left is not right", {"left": None, "right": 1}, id="compare_is_not"),
         ]
     )
-    def test_evaluate_isolated_basic(self, expr: str, vars: dict[str, atom_types]):
-        ans = evaluate_isolated(expr, json.dumps(vars))
-        expect = eval(expr, vars)
+    def test_evaluate_isolated_basic(self, expr: str, vvars: dict[str, atom_types]):
+        ans = evaluate_isolated(expr, json.dumps(vvars))
+        expect = eval(expr, vvars)
         assert ans == expect
 
     @pytest.mark.parametrize(
-        "expr, vars",
+        "expr, vvars",
         [
             pytest.param(
                 "(a + b) * c",
@@ -431,7 +431,7 @@ class Test_evaluate_isolated:
             )
         ]
     )
-    def test_evaluate_isolated_complex_expression(self, expr: str, vars: dict[str, atom_types]):
-        ans = evaluate_isolated(expr, json.dumps(vars))
-        expect = eval(expr, vars)
+    def test_evaluate_isolated_complex_expression(self, expr: str, vvars: dict[str, atom_types]):
+        ans = evaluate_isolated(expr, json.dumps(vvars))
+        expect = eval(expr, vvars)
         assert ans == expect

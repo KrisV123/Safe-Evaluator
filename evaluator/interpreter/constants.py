@@ -130,20 +130,20 @@ In whole typing system, bool values are converted
 to coresponding integer and vais versa to reduce duplicity
 """
 
-basic_num_typing: dict[tuple[object, object], set[object]] = {
+basic_num_typing: dict[tuple[type, type], set[type]] = {
     (int, int): {int},
     (int, float): {float},
     (float, int): {float},
     (float, float): {float}
 }
 
-and_or_typing: dict[tuple[object, object], set[object]] = {
+and_or_typing: dict[tuple[type, type], set[type]] = {
     (val_1, val_2): {val_1, val_2}
     for val_1 in basic_atom_types
     for val_2 in basic_atom_types
 }
 
-basic_compare_typing: dict[tuple[object, object], set[object]] = {
+basic_compare_typing: dict[tuple[type, type], set[type]] = {
     (int, int): {int},
     (float, float): {int},
     (int, float): {int},
@@ -152,13 +152,13 @@ basic_compare_typing: dict[tuple[object, object], set[object]] = {
     (list, list): {int}
 }
 
-is_is_not_typing: dict[tuple[object, object], set[object]] = {
+is_is_not_typing: dict[tuple[type, type], set[type]] = {
     (val_1, val_2): {int}
     for val_1 in basic_atom_types
     for val_2 in basic_atom_types
 }
 
-in_not_in_typing: dict[tuple[object, object], set[object]] = {
+in_not_in_typing: dict[tuple[type, type], set[type]] = {
     (typ, cont): {int}
     for typ in basic_atom_types
     for cont in [list, tuple, str]
@@ -168,7 +168,7 @@ op_type_table:  dict[
                     str, dict[
                         Parser_tok,
                         dict[
-                            tuple, set[object]
+                            tuple, set[type]
                         ]
                     ]
                 ] = {

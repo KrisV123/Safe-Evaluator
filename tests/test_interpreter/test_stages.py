@@ -1015,23 +1015,24 @@ class Test_TypeChecker:
     @pytest.mark.parametrize(
         "expr, vars, typ",
         [
-            pytest.param("var", {'var': 'asd'}, {str}, id="str"),
-            pytest.param("var", {'var': 5}, {int}, id="int"),
-            pytest.param("var", {'var': True}, {int}, id="bool_True"),
-            pytest.param("var", {'var': False}, {int}, id="bool_False"),
-            pytest.param("var", {'var': 5.2}, {float}, id="float"),
-            pytest.param("var", {'var': None}, {NoneType}, id="NonType")
+            pytest.param("var", {'var': str}, {str}, id="str"),
+            pytest.param("var", {'var': int}, {int}, id="int"),
+            pytest.param("var", {'var': bool}, {int}, id="bool_True"),
+            pytest.param("var", {'var': bool}, {int}, id="bool_False"),
+            pytest.param("var", {'var': float}, {float}, id="float"),
+            pytest.param("var", {'var': None}, {None}, id="None"),
+            pytest.param("var", {'var': type(None)}, {NoneType}, id="NonType")
         ]
     )
     def test_check_value_identificators(self,
                                         expr: str,
-                                        vars: dict[str, atom_types],
+                                        vars: dict[str, type],
                                         typ: object):
         tokens = Lexer(expr).tokenize()
         ast = Parser(tokens).parse()
         assert not isinstance(ast, Parser.Failure)
         assert TypeChecker(vars).check(ast) == typ
-    
+
     @pytest.mark.parametrize(
         "expr, typ",
         [
@@ -1266,7 +1267,7 @@ class Test_TypeChecker:
         tokens = Lexer(expr).tokenize()
         ast = Parser(tokens).parse()
         assert not isinstance(ast, Parser.Failure)
-        assert TypeChecker({"tvoja_mama": 5}).check(ast) == typ
+        assert TypeChecker({"tvoja_mama": int}).check(ast) == typ
 
 
 class Test_Evaluator:

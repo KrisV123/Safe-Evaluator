@@ -6,7 +6,7 @@ from evaluator.interpreter.constants import (
 
 import json
 from typing import TypedDict, cast
-from collections.abc import Callable
+from collections.abc import Mapping
 
 def json_str_to_dict(json_str: str) -> dict:
     """
@@ -161,3 +161,32 @@ def _deserialize_ast_worker(dict_ast: dict) -> nodes:
             return Constant(val)
 
     raise RuntimeError('JSON can not recognized as node')
+
+name_to_type: dict[str, type] = {
+    "str": str,
+    "int": int,
+    "float": float,
+    "bool": bool,
+    "None": type(None),
+    "NoneType": type(None),
+    "list": list,
+    "tuple": tuple
+}
+
+def serialize_type_dict(type_dict: dict[str, type | None]) -> str:
+    return json.dumps(_serialize_type_dict_worker(type_dict))
+
+def _serialize_type_dict_worker(type_dict: dict[str, type | None]) -> dict[str, str]:
+    return {
+        var: type(None).__name__ if typ is None else typ.__name__
+        for var, typ in type_dict.items()
+    }
+
+def deserialize_type_dict(json_type_dict: str) -> dict[str, type]:
+    json_dict =  json.loads(json_type_dict)
+    return _deserialize_type_dict(json_dict)
+
+def _deserialize_type_dict(type_dict: dict[str, str]) -> dict[str, type]:
+    return {
+        var: name_to_type[str_type] for var, str_type in type_dict.items()
+    }

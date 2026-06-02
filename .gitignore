@@ -4,6 +4,7 @@
 /evaluator/interpreter/__pycache__
 /tests/__pycache__
 /tests/test_interpreter/__pycache__
+/tests/test_tools/__pycache__
 /__pycache__
 /.mypy_cache
 /.pytest_cache

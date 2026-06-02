@@ -1,7 +1,7 @@
 from __future__ import annotations
 import re
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from types import NoneType
 from itertools import product
@@ -596,24 +596,23 @@ class TypeChecker:
     bool values are replaced with integers
     """
 
-    #vars: dict[str, atom_types]
     __slots__ = ['_frozen', 'vars']
 
-    def __init__(self, vars: dict[str, atom_types] | str):
+    def __init__(self, vars: Mapping[str, type] | str):
         object.__setattr__(self, '_frozen', False)
         self.vars = json_str_to_dict(vars) if isinstance(vars, str) else vars
         object.__setattr__(self, '_frozen', True)
-    
+
     def __setattr__(self, name: str, value: object) -> None:
         if not getattr(self, '_frozen'):
             object.__setattr__(self, name, value)
         else:
             raise AttributeError('Object is immutable')
 
-    @dataclass(slots= True, frozen=True)
+    @dataclass(slots=True, frozen=True)
     class TypeFail:
         failed_node: nodes
-        types: tuple[object] | tuple[object, object]
+        types: tuple[type] | tuple[type, type]
 
     def check(self, node: nodes):
         if isinstance(node, Value):
@@ -633,7 +632,7 @@ class TypeChecker:
             f"Container node {node} wasn't recognized and could not be folded"
         )
 
-    def check_value(self, node: Value) -> set[object]:
+    def check_value(self, node: Value) -> set[type]:
         token = node.token
         if token == Parser_tok.Str:
             return {str}
@@ -645,14 +644,19 @@ class TypeChecker:
             return {NoneType}
         elif token == Parser_tok.Ident:
             assert isinstance(node.value, str)
+            typ = self.vars[node.value]
+            if typ is bool:
+                typ = int
+            return {typ}
+            """assert isinstance(node.value, str)
             val = type(self.vars[node.value])
-            return {val} if val is not bool else {int}
+            return {val} if val is not bool else {int}"""
         else:
             raise RuntimeError(
                 f"Value node {node} wasn't recognized and could not be evaluated"
             )
 
-    def check_unaryop(self, node: UnaryOp) -> set[object] | TypeFail:
+    def check_unaryop(self, node: UnaryOp) -> set[type] | TypeFail:
         union_type = self.check(node.child)
         if isinstance(union_type, self.TypeFail):
             return union_type
@@ -668,7 +672,7 @@ class TypeChecker:
 
         return new_union_type
 
-    def check_binaryop(self, node: BinaryOp) -> set[object] | TypeFail:
+    def check_binaryop(self, node: BinaryOp) -> set[type] | TypeFail:
         left_union_type = self.check(node.left_child)
         right_union_type = self.check(node.right_child)
         if isinstance(left_union_type, self.TypeFail):
@@ -688,14 +692,14 @@ class TypeChecker:
 
         return new_union_type
 
-    def check_collection(self, node: Collection) -> set[object] | TypeFail:
+    def check_collection(self, node: Collection) -> set[type] | TypeFail:
         for elem in node.collection:
             ret = self.check(elem)
             if isinstance(ret, self.TypeFail):
                 return ret
         return {node.typ}
 
-    def check_comparenode(self, node: CompareNode) -> set[object] | TypeFail:
+    def check_comparenode(self, node: CompareNode) -> set[type] | TypeFail:
 
         all_exprs = zip(node.operators, node.operands[1:])
         left_union_type = self.check(node.operands[0])
@@ -734,7 +738,7 @@ class Evaluator:
 
     __slots__ = ['_frozen', 'vars']
 
-    def __init__(self, vars: dict[str, atom_types] | str):
+    def __init__(self, vars: Mapping[str, atom_types] | str):
         object.__setattr__(self, '_frozen', False)
         self.vars = json_str_to_dict(vars) if isinstance(vars, str) else vars
         object.__setattr__(self, '_frozen', True)

@@ -13,21 +13,21 @@ row_ok = evaluate_safe(
     "age >= min_age and status == 'active' and last_login < 30",
     '{"age": 29, "min_age": 18, "status": "active", "last_login": 12}'
 )
-loan_ok = build(
-    "score >= 700 and income > 50000 and dti < 0.4",
-    {"score": 742, "income": 68000, "dti": 0.32}
-)
-rate_ok = build_safe(
-    "reqs < max_r and burst < max_b",
-    '{"reqs": 80, "max_r": 100, "burst": 10, "max_b": 20}'
-)
-policy_result = build_isolated(
-    "amount >= min_amount and tier == 'pro'",
-    '{"amount": 250, "min_amount": 100, "tier": "pro"}'
-)
 runtime_check = evaluate_isolated(
     "load < max_load and errors == 0",
     '{"load": 0.73, "max_load": 0.9, "errors": 0}'
+)
+loan_ok = build(
+    "score >= 700 and income > 50000 and dti < 0.4",
+    {"score": int, "income": int, "dti": float}
+)
+rate_ok = build_safe(
+    "reqs < max_r and burst < max_b",
+    '{"reqs": "int", "max_r": "int", "burst": "int", "max_b": "int"}'
+)
+policy_result = build_isolated(
+    "amount >= min_amount and tier == 'pro'",
+    '{"amount": "int", "min_amount": "int", "tier": "str"}'
 )
 ```
 
@@ -38,10 +38,10 @@ DISCLAIMER: Before using this in production, it is recommended to study all safe
 6 main functions:
 - evaluate (main function for evaluating expressions)
 - evaluate_safe (more secure version, uses JSON input for variables)
+- evaluate_isolated (safest evaluating function, that at the top use process-level isolation)
 - build (function for precompiling an expression into an AST)
 - build_safe (more secure compile function, uses JSON input)
 - build_isolated (safest compile function, that at the top use process-level isolation)
-- evaluate_isolated (safest evaluating function, that at the top use process-level isolation)
 
 Each component can also be used separately.
 
@@ -173,9 +173,13 @@ Takes string with expression and python dictionary with variables to evaluate ex
 
 Same as evaluate, but takes string with JSON, that contains variables to evaluate expression.
 
-3. build(expr: str, vars: dict[str, atom_types])
+3. build_isolated(expr: str, vars: str)
 
-Takes string with expression and python dictionary with variables to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Great, if you need to calculate same expression with multiple sets of variables. AST can be executed with Evaluator.
+Same as build_safe, but build AST in separate process with limited resources.
+
+4. build(expr: str, vars: Mapping[str, type])
+
+Takes string with expression and python dictionary with variables and it's coresponding type to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Great, if you need to calculate same expression with multiple sets of variables. AST can be executed with Evaluator.
 
 Example:
 
@@ -183,23 +187,21 @@ Example:
 from evaluator.pipelines import build
 from evaluator.interpreter.stages import Evaluator
 
-variables = {"x": 6}
 expr = "x + 7"
-ast = build(expr, variables)
+types = {"x": int}
+variables = {"x": 6}
+
+ast = build(expr, types)
 answer = Evaluator(variables).eval(ast)
 ```
 
-4. build_safe(expr: str, vars: str)
+5. build_safe(expr: str, vars: str)
 
-Same as build, but takes string with JSON, that contains variables
+Same as build, but takes string with JSON, that contains variables and it's types are in string format
 
-5. evaluate_isolated(expr: str, vars: str)
+6. evaluate_isolated(expr: str, vars: str)
 
 Same as evaluate_safe, but evaluate expression in separate process with limited resources.
-
-6. build_isolated(expr: str, vars: str)
-
-Same as build_safe, but build AST in separate process with limited resources.
 
 
 In some cases, it is not necessary to use every component. So feel free to build your own pipelines.

@@ -1,9 +1,12 @@
 from evaluator.interpreter.stages import Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
 from evaluator.interpreter.constants import atom_types, nodes
-from evaluator.tools.other import json_str_to_dict, deserialize_ast, deserialize_value
+from evaluator.tools.other import (
+    json_str_to_dict, deserialize_ast, deserialize_value, deserialize_type_dict
+)
 
 import json
 from platform import system
+from collections.abc import Mapping
 
 OS = system()
 if OS == 'Windows':
@@ -11,11 +14,20 @@ if OS == 'Windows':
 elif OS in ('Linux', 'Darwin'):
     from evaluator.tools.unix_sandbox import UnixProcessAPI
 
-def build(expr: str, vars: dict[str, atom_types]) -> nodes:
+def build(expr: str, types: Mapping[str, type]) -> nodes:
     """
     Basic compiler, that compiles string into Abstract Syntax Tree,
-    that could be interpreted with Evaluator. For more secure variables,
-    use compile_safe
+    that could be interpreted with Evaluator.
+
+    Parameter types accept dictionary, where key
+    is variable name in string and value is its type.\n
+    Example:
+    ```python
+    {"my_tuple": tuple}
+    {"my_int": int, "my_float": float, "none_value": None, "none_value": None}
+    ```
+
+    For more secure variables, use build_safe
     """
 
     tokens = Lexer(expr).tokenize()
@@ -24,32 +36,32 @@ def build(expr: str, vars: dict[str, atom_types]) -> nodes:
     if isinstance(ast, Parser.Failure):
         raise RuntimeError(ast)
 
-    typ = TypeChecker(vars).check(ast)
+    typ = TypeChecker(types).check(ast)
 
     if isinstance(typ, TypeChecker.TypeFail):
         raise RuntimeError(typ)
 
     return ConstantFolder().fold(ast)
 
-def build_safe(expr: str, json_vars: str) -> nodes:
+def build_safe(expr: str, json_types: str) -> nodes:
     """
     More secure compiler, that use json in string format,
     to evaluate variables. Recomended, if variables are taken from user.
-    If you want to add tuple, create list, which key starts with __tuple__.\n
-    Example:\n
-    ```json
-    {"__tuple__my_tuple": [1,2,3]}
-    ```
-    will be interpreted as
+
+    Parameter json_types accept string in json format, where key
+    is variable name in string and value is its type in string.\n
+    Example:
     ```python
-    {"my_tuple": (1,2,3)}
+    '{"my_tuple": "tuple"}'
+    '{"my_int": "int", "my_float": "float", "none_value": "None"}'
     ```
+
+    For more secure version, use build_isolated
     """
 
-    vars = json_str_to_dict(json_vars)
-    return build(expr, vars)
+    return build(expr, deserialize_type_dict(json_types))
 
-def build_isolated(expr: str, json_vars: str) -> nodes:
+def build_isolated(expr: str, json_types: str) -> nodes:
     """
     Safest compiler. Works same as build_safe but also runs script
     in separated process with setted resource limits
@@ -66,7 +78,7 @@ def build_isolated(expr: str, json_vars: str) -> nodes:
         - handles: 481
     """
 
-    data = json.dumps({'expr': expr, 'vvars': json_vars})
+    data = json.dumps({'expr': expr, 'types': json_types})
     cmd_args = ['python', '-m', 'evaluator.workers.build_safe']
 
     if OS in ('Linux', 'Darwin'):
@@ -90,13 +102,16 @@ def build_isolated(expr: str, json_vars: str) -> nodes:
     else:
         raise RuntimeError('During launching sandbox, OS was not recognized')
 
-def evaluate(expr: str, vars: dict[str, atom_types]) -> atom_types:
+def evaluate(expr: str, vars: Mapping[str, atom_types]) -> atom_types:
     """
-    Basic interpreter, that have all features and evaluate variables
-    from python dictionary. For more secure variables, use evaluate_safe
+    Basic interpreter, that have all interpreter stages
+    and evaluate variables from python dictionary.
+
+    For more secure variables, use evaluate_safe
     """
 
-    folded_ast = build(expr, vars)
+    type_dict = {key: type(val) for key, val in vars.items()}
+    folded_ast = build(expr, type_dict)
     return Evaluator(vars).eval(folded_ast)
 
 def evaluate_safe(expr: str, json_vars: str) -> atom_types:
@@ -112,6 +127,8 @@ def evaluate_safe(expr: str, json_vars: str) -> atom_types:
     ```python
     {"my_tuple": (1,2,3)}
     ```
+
+    For more secure version, use evaluate_isolated
     """
 
     return evaluate(expr, json_str_to_dict(json_vars))
