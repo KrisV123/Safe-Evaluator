@@ -19,5 +19,8 @@ dependencies = []
 [project.optional-dependencies]
 dev = ["pytest>=9"]
 
+[tool.setuptools.package-data]
+"evaluator" = ["py.typed"]
+
 [tool.setuptools.packages.find]
 where = ["."]
