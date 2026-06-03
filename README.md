@@ -84,16 +84,19 @@ Operators logic is the same as in python
 
 ## How to use it
 
-You only need to import the required function from /evaluator/pipelines.
+You can install it from pip with
+
+```bash
+pip install git+https://github.com/KrisV123/Safe-Evaluator.git
+```
+
+or copy the repository. Than you only need to import the required function from /evaluator/pipelines.
 
 Example:
 
 ```python
 from evaluator.pipelines import evaluate
 ```
-
-The library does not use any external dependencies, so nothing needs to be installed.
-
 
 ## Architecture
 

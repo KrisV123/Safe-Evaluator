@@ -1,5 +1,5 @@
 from evaluator.pipelines import build
-from evaluator.tools.other import serialize_ast, json_str_to_dict, deserialize_type_dict
+from evaluator.tools.other import serialize_ast, deserialize_type_dict
 
 import sys
 import json

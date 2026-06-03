@@ -184,9 +184,9 @@ def _serialize_type_dict_worker(type_dict: dict[str, type | None]) -> dict[str, 
 
 def deserialize_type_dict(json_type_dict: str) -> dict[str, type]:
     json_dict =  json.loads(json_type_dict)
-    return _deserialize_type_dict(json_dict)
+    return _deserialize_type_dict_worker(json_dict)
 
-def _deserialize_type_dict(type_dict: dict[str, str]) -> dict[str, type]:
+def _deserialize_type_dict_worker(type_dict: dict[str, str]) -> dict[str, type]:
     return {
         var: name_to_type[str_type] for var, str_type in type_dict.items()
     }
