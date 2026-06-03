@@ -1,24 +1,23 @@
 [build-system]
-
-requires = ["setuptools>=61", "wheels"]
-build-backend = "setuptools.backend.legacy:build"
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
 
 [project]
-
 name = "Safe-Evaluator"
 version = "0.1.0"
 description = "Safer eval alternative for mathematical and logical operators"
 readme = "README.md"
-licence = { file = "LICENCE" }
+license = { file = "LICENSE" }
 requires-python = ">=3.13"
 keywords = ["eval", "safer", "interpreter", "parser"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "Licence :: MIT licence"
+    "License :: OSI Approved :: MIT License",
 ]
-dependecies = []
+dependencies = []
 
-[tools.setuptools.package.find]
-
-where = ["evaluator"]
+[project.optional-dependencies]
 dev = ["pytest>=9"]
+
+[tool.setuptools.packages.find]
+where = ["."]
