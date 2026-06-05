@@ -1,5 +1,7 @@
 # Safe Evaluator
 
+[![Python application](https://github.com/KrisV123/Safe-Evaluator/actions/workflows/python-app.yml/badge.svg)](https://github.com/KrisV123/Safe-Evaluator/actions/workflows/python-app.yml)
+
 Single expression interpreter based on a subset of Python syntax (Python 3.10+) for mathematical and logical expressions with safety features. A safer alternative to the eval function.
 
 Examples:
