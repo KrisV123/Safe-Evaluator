@@ -176,9 +176,9 @@ Takes string with expression and python dictionary with variables to evaluate ex
 
 Same as evaluate, but takes string with JSON, that contains variables to evaluate expression.
 
-3. build_isolated(expr: str, vars: str)
+3. evaluate_isolated(expr: str, vars: str)
 
-Same as build_safe, but build AST in separate process with limited resources.
+Same as evaluate_safe, but evaluate expression in separate process with limited resources.
 
 4. build(expr: str, vars: Mapping[str, type])
 
@@ -202,9 +202,9 @@ answer = Evaluator(variables).eval(ast)
 
 Same as build, but takes string with JSON, that contains variables and it's types are in string format
 
-6. evaluate_isolated(expr: str, vars: str)
+6. build_isolated(expr: str, vars: str)
 
-Same as evaluate_safe, but evaluate expression in separate process with limited resources.
+Same as build_safe, but build AST in separate process with limited resources.
 
 
 In some cases, it is not necessary to use every component. So feel free to build your own pipelines.
