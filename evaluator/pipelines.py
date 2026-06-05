@@ -64,18 +64,29 @@ def build_safe(expr: str, json_types: str) -> nodes:
 def build_isolated(expr: str, json_types: str) -> nodes:
     """
     Safest compiler. Works same as build_safe but also runs script
-    in separated process with setted resource limits
+    in separated process with setted resource limits        
 
-    LIMITS:
+    WINDOWS:
         - memory: 100 MB
-        - execution time: 5 s
+        - execution time: 5s
+        - handles: 481
     
-    UNIX ONLY:
-        - file descriptors: 10,
+    LINUX:
+        - memory: 100 MB
+        - execution time: 5s
+        - file descriptors: 10
         - adress space: 200 MB
     
-    WINDOWS ONLY:
-        - handles: 481
+    MacOS:
+        WARNING:
+
+        Resource limiting has known issues. Memory limits are
+        not enforced by the OS and other limits may behave unexpectedly,
+        especially in multithreaded programs. See documentation for details
+
+        - execution time: 5s
+        - file descriptors: 10
+        - adress space: 200 MB
     """
 
     data = json.dumps({'expr': expr, 'types': json_types})
@@ -138,16 +149,27 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
     Safest evaluator. Works same as evaluate_safe but also runs script
     in separated process with setted resource limits
 
-    LIMITS:
+    WINDOWS:
         - memory: 100 MB
-        - execution time: 5 s
+        - execution time: 5s
+        - handles: 481
     
-    UNIX ONLY:
-        - file descriptors: 10,
+    LINUX:
+        - memory: 100 MB
+        - execution time: 5s
+        - file descriptors: 10
         - adress space: 200 MB
     
-    WINDOWS ONLY:
-        - handles: 481
+    MacOS:
+        WARNING:
+
+        Resource limiting has known issues. Memory limits are
+        not enforced by the OS and other limits may behave unexpectedly,
+        especially in multithreaded programs. See documentation for details
+
+        - execution time: 5s
+        - file descriptors: 10
+        - adress space: 200 MB
     """
 
     data = json.dumps({'expr': expr, 'vvars': json_vars})
