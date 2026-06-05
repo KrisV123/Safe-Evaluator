@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import operator
 from collections.abc import Callable
 from enum import IntEnum, auto
@@ -234,8 +236,6 @@ op_type_table:  dict[
     }
 }
 
-type nodes = UnaryOp | BinaryOp | Value | Collection | CompareNode | Constant
-
 @dataclass(slots=True, frozen=True)
 class Lexer_tok:
     typ: Lexer_type
@@ -277,3 +277,5 @@ class CompareNode:
 @dataclass(slots=True, frozen=False)
 class Constant:
     value: atom_types | list[atom_types]
+
+nodes = UnaryOp | BinaryOp | Value | Collection | CompareNode | Constant
