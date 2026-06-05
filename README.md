@@ -277,6 +277,9 @@ Specific functions evaluate themselves in a separate process with limited resour
 **Windows**
 - execution time: 5s
 - committed memory: 100 MB
+- handles: 481
+- job object active processes: 1
+- cleanup on job close: enabled
 
 This prevents:
 - overloading CPU
@@ -286,6 +289,8 @@ This prevents:
 - crashing does not influence main process
 
 However, this creates significant overhead when spawning processes and resource limiting is not deterministic. Recommended only when security is the top priority.
+
+MacOS only:
 
 Resource limiting relies on setrlimit which has several known limitations on macOS. On macOS, resource limiting relies on setrlimit which has several known limitations. RLIMIT_NPROC applies per-user rather than per-process, so setting it to 0 may interfere with other processes running under the same user. Additionally, limits are applied between fork() and exec() during process spawning — if the parent process is multithreaded, locks held by other threads are not transferred to the child, which can cause deadlocks or crashes. Use on macOS only if you understand these limitations and accept the weaker security guarantees.
 

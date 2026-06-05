@@ -155,6 +155,8 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
         - adress space (committed): 100 MB
         - execution time: 5s
         - handles: 481
+        - job object active processes: 1
+        - cleanup on job close: enabled
 
     LINUX:
         - execution time: 5s

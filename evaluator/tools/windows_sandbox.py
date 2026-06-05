@@ -85,6 +85,9 @@ class WindowsProcessAPI:
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x00000100
     JOB_OBJECT_LIMIT_PROCESS_TIME = 0x00000002
+    JOB_OBJECT_LIMIT_ACTIVE_PROCESS = 0x00000001
+    JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+
     JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
     CREATE_SUSPENDED = 0x00000004
     STARTF_USESTDHANDLES = 0x00000100
@@ -217,10 +220,13 @@ class WindowsProcessAPI:
 
         info.BasicLimitInformation.LimitFlags = (
             cls.JOB_OBJECT_LIMIT_PROCESS_MEMORY |
-            cls.JOB_OBJECT_LIMIT_PROCESS_TIME
+            cls.JOB_OBJECT_LIMIT_PROCESS_TIME   |
+            cls.JOB_OBJECT_LIMIT_ACTIVE_PROCESS |
+            cls.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
         )
         info.ProcessMemoryLimit = 100 * 1024 * 1024 # 100 MB
         info.PerProcessUserTimeLimit = 5 * 10_000_000 # 5 seconds
+        info.BasicLimitInformation.ActiveProcessLimit = 1 # 1
 
         cls.kernel32.SetInformationJobObject(
             job,
