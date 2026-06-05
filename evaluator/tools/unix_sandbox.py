@@ -1,9 +1,12 @@
 import subprocess
+from platform import system
 
 try:
     import resource
 except ImportError:
     pass
+
+OS = system()
 
 class UnixProcessAPI:
 
@@ -11,7 +14,8 @@ class UnixProcessAPI:
     def _limit_unix_resource(cls) -> None:
         setrlimit = resource.setrlimit # type: ignore
         setrlimit(resource.RLIMIT_CPU, (5, 5)) # type: ignore
-        #setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, -1)) # type: ignore
+        if OS == 'Linux':
+            setrlimit(resource.RLIMIT_AS, (200 * 1024 * 1024, -1)) # type: ignore
         setrlimit(resource.RLIMIT_NOFILE, (10, 10)) # type: ignore
         setrlimit(resource.RLIMIT_NPROC, (0, 0)) # type: ignore
 
