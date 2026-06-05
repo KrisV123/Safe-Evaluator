@@ -1,6 +1,6 @@
 # Safe Evaluator
 
-Single expression interpreter based on a subset of Python 3.12 for mathematical and logical expressions with safety features. A safer alternative to the eval function.
+Single expression interpreter based on a subset of Python syntax (Python 3.10+) for mathematical and logical expressions with safety features. A safer alternative to the eval function.
 
 Examples:
 
