@@ -4,9 +4,9 @@ from enum import IntEnum, auto
 from types import NoneType
 from dataclasses import dataclass
 
-type atom_types = (
+atom_types = (
     str | int | float | bool | None |
-    list[atom_types] | tuple[atom_types, ...]
+    list["atom_types"] | tuple["atom_types", ...]
 )
 #bool is skipped cause it's represented as int
 basic_atom_types = (str, int, float, NoneType, list, tuple)
