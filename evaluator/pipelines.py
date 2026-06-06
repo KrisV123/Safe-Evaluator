@@ -67,15 +67,24 @@ def build_isolated(expr: str, json_types: str) -> nodes:
     in separated process with setted resource limits
 
     WINDOWS:
-        - memory: 100 MB
+        - adress space (committed): 100 MB
         - execution time: 5s
         - handles: 481
-    
+        - job object active processes: 1
+        - cleanup on job close: enabled
+
     LINUX:
-        - memory: 100 MB
         - execution time: 5s
         - file descriptors: 10
-        - adress space: 200 MB
+        - adress space: 100 MB
+        - processes/threads: creation disabled
+        - stack size: 4 MB
+        - core dumps: disabled
+        - locked memory: 0 B
+        - POSIX message queues: disabled
+        - priority increase: disabled
+        - real-time CPU time: disabled
+        - pending signals: 32
     
     MacOS:
         WARNING:
@@ -86,9 +95,10 @@ def build_isolated(expr: str, json_types: str) -> nodes:
 
         - execution time: 5s
         - file descriptors: 10
-        - adress space: 200 MB
-    
-    these are main limits. Others are listed in documentation
+        - processes: process creation disabled
+        - stack size: 4 MB
+        - core dumps: disabled
+        - locked memory: 0 B
     """
 
     data = json.dumps({'expr': expr, 'types': json_types})
@@ -184,8 +194,6 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
         - stack size: 4 MB
         - core dumps: disabled
         - locked memory: 0 B
-
-    these are main limits. Others are listed in documentation
     """
 
     data = json.dumps({'expr': expr, 'vvars': json_vars})
