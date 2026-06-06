@@ -7,8 +7,7 @@
 ## CLARIFICATIONS:
 # 1. empty space means nothing special
 # 2. ? after terminal on nonterminal means optional
-# rules are order dependent (first is used before second)
-# duplication of similar rules is prefered for better readability (just in documentation)
+# 4. duplication of similar rules is prefered for better readability (just in documentation)
 
 
 ---------------------- GRAMMER ------------------------
@@ -24,7 +23,7 @@ DISJUNCTION:
     | CONJUCTION ('or' CONJUCTION)*
 
 CONJUCTION:
-    | COMPARE_OPERATOR ('and'COMPARE_OPERATOR)*
+    | COMPARE_OPERATOR ('and' COMPARE_OPERATOR)*
 
 COMPARE_OPERATOR:
     | NEGATION (COMPARE_TERMINAL NEGATION)*
@@ -64,7 +63,7 @@ FACTOR:
     | POWER
 
 POWER:
-    | ATOM ** FACTOR
+    | ATOM '**' FACTOR
     | ATOM
 
 ATOM:
