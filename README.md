@@ -38,6 +38,7 @@ DISCLAIMER: Before using this in production, it is recommended to study all safe
 ## Features
 
 6 main functions:
+
 - evaluate (main function for evaluating expressions)
 - evaluate_safe (more secure version, uses JSON input for variables)
 - evaluate_isolated (safest evaluating function, that at the top use process-level isolation)
@@ -97,12 +98,12 @@ or copy the repository. Than you only need to import the required function from 
 Example:
 
 ```python
-from evaluator.pipelines import evaluate
+from evaluator import evaluate
 ```
 
-## Architecture
+## Interpreter architecture
 
-The main motivations for this project are educational purposes, but also to create a usable production-ready product with no external dependencies (for both security and educational reasons).
+The main motivations for this project are educational purposes, but also to create a usable production-ready product with no external dependencies (for both security and also educational reasons).
 
 Whole interpreter consists of 5 components
 
@@ -112,41 +113,53 @@ Whole interpreter consists of 5 components
 - ConstantFolder
 - Evaluator
 
-Each component is handwritten, no parser generators are used (only regex in a few cases for performance).
+- diagnostic tools
+
+Each component returns it's own Failure object, that catches every possible exception. Each Failure have it's own specific data about error. This makes capturing errors more simple (only one or two Failure objects can occure in each component based on it's purpose except many different exceptions), code can easily adapt in pipeline based on Failure and makes diagnostics simple.
+
+Components are handwritten, no parser generators are used (only regex in a few cases for performance).
 
 ---
 
 ### Lexer
 
 Takes a string as input and returns a list of lexer tokens (Lexer_tok objects).
-Each token stores the lexeme type, value, and position. Only the type is required, the rest is for debugging.
+Each token stores the lexeme type, value, and position. Only the type is required for evaluation, the rest is for debugging.
 
-If tokenization fails, a SyntaxError is raised with the position.
+If tokenization fails, a Lexer.Failure object is returned with error details.
 
 ---
 
 ### Parser
 
-A Packrat parser that takes lexer tokens and returns an Abstract Syntax Tree (AST).
-It is based on PEG grammar rules defined in evaluator/parser_grammer.gram, mimicking a subset of Python grammar.
+A Packrat parser that takes lexer tokens and returns an decorated Abstract Syntax Tree (AST).
+Parser is based on PEG grammar rules defined in evaluator/parser_grammer.gram, mimicking a subset of Python grammar.
 
-If parsing fails, a Failure object is returned with error details.
+If parsing fails, a Parser.Failure object is returned with error details.
 
 ---
 
 ### TypeChecker
 
-A static type checker that takes an AST and returns the resulting type based on rules in evaluator/constants.py.
+A static type checker that takes an dictionary with variable names and their type objects, AST and returns the resulting type based on rules in evaluator/interpreter/tables.py (mimicking type rules in python).
 
-Each type is represented as a set of possible types (UnionType), even for single types.
+Each type is represented as a set of possible types (UnionType), even for single type.
 
-It can be also used separately, just to evaluate type of expression, if it is necessary. Inside a prebuild pipelines, TypeChecker is only used to check, if type fail is returned. Other values are ignored.
+It can be also used separately, just to evaluate type of expression, if it is necessary. Inside a prebuild pipelines, TypeChecker is only used to check, if Failure is returned and for better error dignostics. Other values are ignored.
 
 Limitations:
 
 - Cannot check contents inside containers (shallow typing)
 
-If a type error occurs, a TypeFail object is returned with details.
+If a type error occurs, a TypeChecker.Failure object is returned with error details. TypeChecker distinguishes between two error types (TypeFailure and GenericFailure). TypeFailure will be returned, if TypeChecker catches type error and in every other case will be returned as GenericFailure (for example dividing with zero). TypeFailure and GenericFailure inherit from main parent TypeChecker.Failure object, so each of them can be recognized as that object
+
+If user is operating with json-like strings, TypeChecker instance can be created with classmethod
+
+```python
+TypeChecker.from_json('{"x": "int"}')
+```
+
+and string will be automatically converted to dict in the background.
 
 Not strictly required, but adds safety and prevents runtime issues.
 
@@ -154,15 +167,35 @@ Not strictly required, but adds safety and prevents runtime issues.
 
 ### ConstantFolder
 
-Optimizes the AST by folding constant expressions into single nodes.
+Optimizes AST by folding constant expressions into single nodes.
 
-Not required, but improves performance.
+Not required, but improves performance if same AST is evaluated repeatedly.
+
+If runtime error occures, a Failure object is returned with error details.
 
 ---
 
 ### Evaluator
 
-The final component that evaluates AST. Evaluator can accept as a variables dictionary, but also string in JSON format.
+The final component that takes dictionary with variable names and runtime values, AST and returnes evaluated value.
+
+If runtime error occures, a Evaluator.Failure object will be returned with error details.
+
+If user is also operating with json-like strings, Evaluator instance can be also created with classmethod
+
+```python
+Evaluator.from_json('{"x": 5}')
+```
+
+and will be automatically converted.
+
+---
+
+### Diagnostic tools
+
+Every component have build it's own diagnosting tool for their specific errors and registered in DIAGNOSTICS_REGISTER table. Every tool analyze error data and returns string with error message.
+
+For creating error message, diagnose function can be used, which works as orchestrator to choose right diagnosting tool.
 
 ---
 
@@ -170,27 +203,27 @@ The final component that evaluates AST. Evaluator can accept as a variables dict
 
 There are already 6 built-in functions using these tools to fully evaluate expression.
 
-1. evaluate(expr: str, vars: dict[str, atom_types])
+1. evaluate(expr: str, vars: dict[str, atom_types], max_expr_length:int=80)
 
-Takes string with expression and python dictionary with variables to evaluate expression.
+Takes string with expression and python dictionary with variables to evaluate expression. Parameter max_expr_length filter any expression larger than limit (presetted to 80 chars).
 
-2. evaluate_safe(expr: str, vars: str)
+2. evaluate_safe(expr: str, vars: str, max_expr_length:int=80)
 
 Same as evaluate, but takes string with JSON, that contains variables to evaluate expression.
 
-3. evaluate_isolated(expr: str, vars: str)
+3. evaluate_isolated(expr: str, vars: str, max_expr_length:int=80)
 
 Same as evaluate_safe, but evaluate expression in separate process with limited resources.
 
-4. build(expr: str, vars: Mapping[str, type])
+4. build(expr: str, vars: Mapping[str, type], max_expr_length:int=80)
 
 Takes string with expression and python dictionary with variables and it's coresponding type to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Great, if you need to calculate same expression with multiple sets of variables. AST can be executed with Evaluator.
 
 Example:
 
 ```python
-from evaluator.pipelines import build
-from evaluator.interpreter.stages import Evaluator
+from evaluator import build
+from evaluator import Evaluator
 
 expr = "x + 7"
 types = {"x": int}
@@ -200,17 +233,17 @@ ast = build(expr, types)
 answer = Evaluator(variables).eval(ast)
 ```
 
-5. build_safe(expr: str, vars: str)
+Parameter max_expr_length filter any expression larger than limit (presetted to 80 chars).
+
+5. build_safe(expr: str, vars: str, max_expr_length:int=80)
 
 Same as build, but takes string with JSON, that contains variables and it's types are in string format
 
-6. build_isolated(expr: str, vars: str)
+6. build_isolated(expr: str, vars: str, max_expr_length:int=80)
 
 Same as build_safe, but build AST in separate process with limited resources.
 
-
 In some cases, it is not necessary to use every component. So feel free to build your own pipelines.
-
 
 ## Optimalizations
 
@@ -222,6 +255,14 @@ Since Python is relatively slow, several optimizations were used:
 4. Python regex engine for Lexer in few cases
 5. General Python performance tricks
 
+## Testing
+
+Since interpreter instead of raising exceptions returns Fialure objects, it needs do ensured, that interpeter does not have any unreachable states. In testing was used
+
+1. unit tests
+2. fuzzer tests
+3. completion tests for some dependent components
+4. integration tests for whole pipelines
 
 ## Security features
 
@@ -245,6 +286,12 @@ Each operation is mapped to a controlled implementation, preventing unexpected b
 
 This reduces the attack surface, but still allows expressions that may be computationally expensive.
 
+### Expression length
+
+Accepts only expressions up to a predefined maximum length. Longer expressions are automatically rejected before any processing begins.
+
+This serves as a first-pass filter against obviously malformed or malicious input, but is not sufficient to prevent DoS attacks on its own.
+
 ### Safe input handling (evaluate_safe, build_safe)
 
 Accepts variables as JSON strings instead of Python objects
@@ -262,7 +309,9 @@ However JSON parsing adds overhead. Recommended only when necessary or when the 
 Specific functions evaluate themselves in a separate process with limited resources.
 
 **UNIX (Linux + macOS)**
-- execution time: 5s
+
+- Wall-clock time: 5s
+- CPU execution time: 5s
 - open file descriptors: 10
 - process/thread creation: disabled
 - stack size: 4 MB
@@ -270,6 +319,7 @@ Specific functions evaluate themselves in a separate process with limited resour
 - locked memory: disabled
 
 **Linux additionally**
+
 - virtual memory: 100 MB
 - POSIX message queues: disabled
 - priority increase: disabled
@@ -277,13 +327,16 @@ Specific functions evaluate themselves in a separate process with limited resour
 - pending signals: 32
 
 **Windows**
-- execution time: 5s
+
+- CPU execution time: 5s
+- user space execution time: 5s
 - committed memory: 100 MB
 - handles: 481
 - job object active processes: 1
 - cleanup on job close: enabled
 
 This prevents:
+
 - overloading CPU
 - overloading RAM
 - uncontrolled creation of kernel objects and opened files
@@ -313,12 +366,14 @@ e.g. [1, "a"] is treated simply as list
 ### Parser limits (basic DoS protection)
 
 - Limits:
-    - recursion depth
-    - total number of parser rule evaluations
+
+  - recursion depth
+  - total number of parser rule evaluations
 
 - This helps mitigate:
-    - extremely deep or pathological expressions
-    - certain algorithmic complexity attacks on the parser
+
+  - extremely deep or pathological expressions
+  - certain algorithmic complexity attacks on the parser
 
 However:
 

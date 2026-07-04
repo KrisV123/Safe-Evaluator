@@ -1,10 +1,13 @@
 import ctypes
 import threading
 import time
-from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Any
+
 import ctypes
 from ctypes import wintypes
+KERNEL32 = ctypes.WinDLL("kernel32", use_last_error=True)
+
+from evaluator.sandbox.base import Sandbox
 
 class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
     _fields_ = [
@@ -81,11 +84,10 @@ class SECURITY_ATTRIBUTES(ctypes.Structure):
     ]
 
 
-class WindowsProcessAPI:
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+class WindowsProcessAPI(Sandbox):
     JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x00000100
     JOB_OBJECT_LIMIT_PROCESS_TIME = 0x00000002
-    JOB_OBJECT_LIMIT_ACTIVE_PROCESS = 0x00000001
+    JOB_OBJECT_LIMIT_ACTIVE_PROCESS = 0x00000008
     JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
 
     JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
@@ -95,43 +97,43 @@ class WindowsProcessAPI:
 
     # declaring ABI arguments
 
-    kernel32.GetProcessHandleCount.argtypes = [
+    KERNEL32.GetProcessHandleCount.argtypes = [
             wintypes.HANDLE,
             ctypes.POINTER(wintypes.DWORD)
         ]
-    kernel32.GetProcessHandleCount.restype = wintypes.BOOL
+    KERNEL32.GetProcessHandleCount.restype = wintypes.BOOL
 
-    kernel32.TerminateProcess.argtypes = [
+    KERNEL32.TerminateProcess.argtypes = [
         wintypes.HANDLE,
         wintypes.UINT
     ]
-    kernel32.TerminateProcess.restype = wintypes.BOOL
+    KERNEL32.TerminateProcess.restype = wintypes.BOOL
 
     LPSECURITY_ATTRIBUTES = ctypes.POINTER(SECURITY_ATTRIBUTES)
 
-    kernel32.CreateJobObjectW.argtypes = [
+    KERNEL32.CreateJobObjectW.argtypes = [
         LPSECURITY_ATTRIBUTES,
         wintypes.LPCWSTR
     ]
-    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    KERNEL32.CreateJobObjectW.restype = wintypes.HANDLE
 
-    kernel32.CreateProcessW.argtypes = [
+    KERNEL32.CreateProcessW.argtypes = [
         wintypes.LPCWSTR, wintypes.LPWSTR,  wintypes.LPVOID,
         wintypes.LPVOID,  wintypes.BOOL,    wintypes.DWORD,
         wintypes.LPVOID,  wintypes.LPCWSTR, ctypes.POINTER(STARTUPINFO),
         ctypes.POINTER(PROCESS_INFORMATION)
     ]
 
-    kernel32.WriteFile.argtypes = [
+    KERNEL32.WriteFile.argtypes = [
         wintypes.HANDLE,
         wintypes.LPCVOID,
         wintypes.DWORD,
         ctypes.POINTER(wintypes.DWORD),
         wintypes.LPVOID
     ]
-    kernel32.WriteFile.restype = wintypes.BOOL
+    KERNEL32.WriteFile.restype = wintypes.BOOL
 
-    kernel32.PeekNamedPipe.argtypes = [
+    KERNEL32.PeekNamedPipe.argtypes = [
         wintypes.HANDLE,
         ctypes.c_void_p,
         wintypes.DWORD,
@@ -139,13 +141,59 @@ class WindowsProcessAPI:
         ctypes.POINTER(wintypes.DWORD),
         ctypes.POINTER(wintypes.DWORD)
     ]
-    kernel32.PeekNamedPipe.restype = wintypes.BOOL
+    KERNEL32.PeekNamedPipe.restype = wintypes.BOOL
 
-    kernel32.WaitForSingleObject.argtypes = [
+    KERNEL32.WaitForSingleObject.argtypes = [
         wintypes.HANDLE,
         wintypes.DWORD
     ]
-    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+    KERNEL32.WaitForSingleObject.restype = wintypes.DWORD
+
+    JOBOBJECTINFOCLASS = ctypes.c_int
+
+    KERNEL32.SetInformationJobObject.argtypes = [
+        wintypes.HANDLE,
+        JOBOBJECTINFOCLASS,
+        wintypes.LPVOID,
+        wintypes.DWORD
+    ]
+    KERNEL32.SetInformationJobObject.restype = wintypes.BOOL
+
+    KERNEL32.CreatePipe.argtypes = [
+        ctypes.POINTER(wintypes.HANDLE),
+        ctypes.POINTER(wintypes.HANDLE),
+        LPSECURITY_ATTRIBUTES,
+        wintypes.DWORD
+    ]
+    KERNEL32.CreatePipe.restype = wintypes.BOOL
+
+    KERNEL32.SetHandleInformation.argtypes = [
+        wintypes.HANDLE,
+        wintypes.DWORD,
+        wintypes.DWORD
+    ]
+    KERNEL32.SetHandleInformation.restype = wintypes.BOOL
+
+    KERNEL32.CloseHandle.argtypes = [wintypes.HANDLE]
+    KERNEL32.CloseHandle.restype = wintypes.BOOL
+
+    KERNEL32.AssignProcessToJobObject.argtypes = [
+        wintypes.HANDLE,
+        wintypes.HANDLE
+    ]
+    KERNEL32.AssignProcessToJobObject.restype = wintypes.BOOL
+
+    KERNEL32.ResumeThread.argtypes = [wintypes.HANDLE]
+    KERNEL32.ResumeThread.restype = wintypes.DWORD
+
+    KERNEL32.ReadFile.argtypes = [
+        wintypes.HANDLE,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+        wintypes.LPVOID
+    ]
+    KERNEL32.ReadFile.restype = wintypes.BOOL
 
     @classmethod
     def _watchdog_handles(cls, pi: PROCESS_INFORMATION, limit: int):
@@ -156,84 +204,104 @@ class WindowsProcessAPI:
 
         while True:
             count = wintypes.DWORD()
-            cls.kernel32.GetProcessHandleCount(
+            KERNEL32.GetProcessHandleCount(
                 pi.hProcess,
                 ctypes.byref(count)
             )
             if count.value > limit:
-                cls.kernel32.TerminateProcess(
-                    pi.hProcess,
-                    1
-                )
+                KERNEL32.TerminateProcess(pi.hProcess, 1)
+            time.sleep(0.05)
+
+    @classmethod
+    def _watchdog_cpu_time(cls, pi: PROCESS_INFORMATION, limit: int):
+        start_time = time.monotonic()
+        while True:
+            current_time = time.monotonic()
+            if current_time - start_time > limit:
+                KERNEL32.TerminateProcess(pi.hProcess, 1)
             time.sleep(0.05)
 
     @classmethod
     def _create_pipe(cls, r_handle: wintypes.HANDLE, w_handle: wintypes.HANDLE, inherit: Literal['r', 'w', 'rw']):
         """Create pipe from handles. Needs to be closed manually"""
 
-        cls.kernel32.CreatePipe(ctypes.byref(r_handle), ctypes.byref(w_handle), None, 0)
+        KERNEL32.CreatePipe(ctypes.byref(r_handle), ctypes.byref(w_handle), None, 0)
 
         if inherit == 'r':
-            cls.kernel32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 1)
-            cls.kernel32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 0)
+            success = KERNEL32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 1)
+            cls.check_os_error(success)
+            success = KERNEL32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 0)
+            cls.check_os_error(success)
         elif inherit == 'w':
-            cls.kernel32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 0)
-            cls.kernel32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 1)
+            success = KERNEL32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 0)
+            cls.check_os_error(success)
+            success = KERNEL32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 1)
+            cls.check_os_error(success)
         elif inherit == 'rw':
-            cls.kernel32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 1)
-            cls.kernel32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 1)
+            success = KERNEL32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 1)
+            cls.check_os_error(success)
+            success = KERNEL32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 1)
+            cls.check_os_error(success)
         else:
             raise SyntaxError('inherit literal does not exist')
 
     @classmethod
-    def _read_pipe(cls, buffer: bytes, r_handle: wintypes.HANDLE, output_size: int=4096) -> bytes:
+    def _read_pipe(cls, buffer: bytes, r_handle: wintypes.HANDLE, output_size: int=8192) -> bytes:
         """Accumulate new read bytes to buffer. Meant to be executed in reading loop"""
 
         available_out = wintypes.DWORD()
-        cls.kernel32.PeekNamedPipe(r_handle, None, 0, None, ctypes.byref(available_out), None)
+        KERNEL32.PeekNamedPipe(r_handle, None, 0, None, ctypes.byref(available_out), None)
         if available_out.value > 0:
             out_buffer = ctypes.create_string_buffer(output_size)
             out_size = wintypes.DWORD()
-            success = cls.kernel32.ReadFile(r_handle, out_buffer, output_size, ctypes.byref(out_size), None)
+            success = KERNEL32.ReadFile(r_handle, out_buffer, output_size, ctypes.byref(out_size), None)
             if success and out_size.value > 0:
                 buffer += out_buffer.raw[:out_size.value]
 
         return buffer
 
-    @dataclass(slots=True, frozen=True)
-    class Output:
-        value: bytes
+    @classmethod
+    def check_os_error(cls, success: Any) -> None:
+        """raise exception, if OS error occures. Else do nothing"""
 
-    @dataclass(slots=True, frozen=True)
-    class Error:
-        value: bytes
+        if not success:
+            err = ctypes.get_last_error()
+            raise OSError(err)
 
     @classmethod
-    def create_windows_process(cls, cmd: str, input: bytes) -> Output | Error:
+    def create_process(cls,
+                       cmd: list[str],
+                       input: str,
+                       time_limit:int=5,
+                       memory_limit:int=100) -> Sandbox.Output | Sandbox.Error:
         """
         Execute command in separated process with given input and
         returns output or error wrapped in coresponding objects
+
+        optional arguments are time_limit and memory_limit
+        (time_limit is setted to user-space time and CPU time)
         """
 
-        job = cls.kernel32.CreateJobObjectW(None, "sandbox_limits")
+        job = KERNEL32.CreateJobObjectW(None, "sandbox_limits")
         info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
 
         info.BasicLimitInformation.LimitFlags = (
-            cls.JOB_OBJECT_LIMIT_PROCESS_MEMORY |
-            cls.JOB_OBJECT_LIMIT_PROCESS_TIME   |
-            cls.JOB_OBJECT_LIMIT_ACTIVE_PROCESS |
+            cls.JOB_OBJECT_LIMIT_PROCESS_MEMORY    |
+            cls.JOB_OBJECT_LIMIT_PROCESS_TIME      |
+            cls.JOB_OBJECT_LIMIT_ACTIVE_PROCESS    |
             cls.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
         )
-        info.ProcessMemoryLimit = 100 * 1024 * 1024 # 100 MB
-        info.PerProcessUserTimeLimit = 5 * 10_000_000 # 5 seconds
+        info.ProcessMemoryLimit = memory_limit * 1024 * 1024 # 100 MB (default)
+        info.BasicLimitInformation.PerProcessUserTimeLimit = time_limit * 10_000_000 # 5 seconds (default)
         info.BasicLimitInformation.ActiveProcessLimit = 1 # 1
 
-        cls.kernel32.SetInformationJobObject(
+        success = KERNEL32.SetInformationJobObject(
             job,
             cls.JOB_OBJECT_EXTENDED_LIMIT_INFORMATION,
             ctypes.byref(info),
             ctypes.sizeof(info)
         )
+        cls.check_os_error(success)
 
         stdin_r, stdin_w = wintypes.HANDLE(), wintypes.HANDLE()
         cls._create_pipe(stdin_r, stdin_w, 'r')
@@ -250,9 +318,10 @@ class WindowsProcessAPI:
 
         pi = PROCESS_INFORMATION()
 
-        cls.kernel32.CreateProcessW(
+        joined_cmd = ' '.join(cmd)
+        success = KERNEL32.CreateProcessW(
             None,
-            ctypes.create_unicode_buffer(cmd),
+            ctypes.create_unicode_buffer(joined_cmd),
             None,
             None,
             True,
@@ -262,46 +331,65 @@ class WindowsProcessAPI:
             ctypes.byref(si),
             ctypes.byref(pi)
         )
+        cls.check_os_error(success)
 
-        cls.kernel32.CloseHandle(stdin_r)
-        cls.kernel32.CloseHandle(stdout_w)
-        cls.kernel32.CloseHandle(stderr_w)
+        success = KERNEL32.CloseHandle(stdin_r)
+        cls.check_os_error(success)
+        success = KERNEL32.CloseHandle(stdout_w)
+        cls.check_os_error(success)
+        success = KERNEL32.CloseHandle(stderr_w)
+        cls.check_os_error(success)
 
-        cls.kernel32.AssignProcessToJobObject(job, pi.hProcess)
+        success = KERNEL32.AssignProcessToJobObject(job, pi.hProcess)
+        cls.check_os_error(success)
 
         threading.Thread(
             target=cls._watchdog_handles,
             daemon=True,
-            args=(pi, 81 + 400) # 81 cca minimum + 400 extra
+            args=(pi, 81 + 400) # 81 cca minimum + 400 extra handles
         ).start()
 
-        cls.kernel32.ResumeThread(pi.hThread)
+        threading.Thread(
+            target=cls._watchdog_cpu_time,
+            daemon=True,
+            args=(pi, time_limit) # 5 seconds
+        ).start()
+
+        success = KERNEL32.ResumeThread(pi.hThread)
+        cls.check_os_error(success)
         written = wintypes.DWORD()
 
-        cls.kernel32.WriteFile(
+        bytes_input = input.encode('utf-8')
+
+        success = KERNEL32.WriteFile(
             stdin_w,
-            input,
-            len(input),
+            bytes_input,
+            len(bytes_input),
             ctypes.byref(written),
             None
         )
-        cls.kernel32.CloseHandle(stdin_w)
+        cls.check_os_error(success)
+
+        success = KERNEL32.CloseHandle(stdin_w)
+        cls.check_os_error(success)
 
         output, error = b'', b''
         while True:
             output = cls._read_pipe(output, stdout_r)
             error = cls._read_pipe(error, stderr_r)
-            if cls.kernel32.WaitForSingleObject(pi.hProcess, 0) == 0:
+            if KERNEL32.WaitForSingleObject(pi.hProcess, 0) == 0:
                 break
             time.sleep(0.01)
 
-        cls.kernel32.CloseHandle(stdout_r)
-        cls.kernel32.CloseHandle(stderr_r)
+        success = KERNEL32.CloseHandle(stdout_r)
+        cls.check_os_error(success)
+        success = KERNEL32.CloseHandle(stderr_r)
+        cls.check_os_error(success)
 
         if len(output) > 0 and len(error) == 0:
-            return cls.Output(output)
+            return cls.Output(output.decode('utf-8'))
         elif len(output) == 0 and len(error) > 0:
-            return cls.Error(error)
+            return cls.SubprocessError(error.decode('utf-8'))
         else:
             raise RuntimeError(
                 'Sandbox runtime error. Process did not survived to reading output'

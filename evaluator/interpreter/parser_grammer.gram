@@ -40,9 +40,6 @@ COMPARE_TERMINAL:
     | '=='
     | '!='
 
-COMPARE_OPERATOR:
-    | NEGATION '<=' NEGATION ('and' NEGATION)*
-
 NEGATION:
     | 'not' NEGATION
     | HIGH_ORD_OPERATOR

@@ -1,20 +1,28 @@
 from evaluator.interpreter.stages import Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
-from evaluator.interpreter.constants import atom_types, nodes
-from evaluator.tools.other import (
-    json_str_to_dict, deserialize_ast, deserialize_value, deserialize_type_dict
-)
+from evaluator.types import atom_types, nodes
+from evaluator.protocols.ipc import ValueCodec, ASTCodec
+from evaluator.protocols.serialization import TypeDictCodec, VarsDictCodec
+from evaluator.interpreter.diagnostics import diagnose
 
 import json
 from platform import system
-from collections.abc import Mapping
+from typing import assert_never
+
+from evaluator.sandbox.os_orchester import get_sandbox
 
 OS = system()
-if OS == 'Windows':
-    from evaluator.tools.windows_sandbox import WindowsProcessAPI
-elif OS in ('Linux', 'Darwin'):
-    from evaluator.tools.unix_sandbox import UnixProcessAPI
+SANDBOX = get_sandbox()
 
-def build(expr: str, types: Mapping[str, type]) -> nodes:
+def check_expr_len(expr: str, limit: int) -> None:
+    """check if expression exceed the limit. If yes, raise the exception"""
+
+    expr_len = len(expr)
+    if expr_len > limit:
+        raise RuntimeError(
+            f"Expression length limit exceeded. Lenght: {expr_len}, Limit: {limit}"
+        )
+
+def build(expr: str, types: dict[str, type], max_expr_length:int=80) -> nodes:
     """
     Basic compiler, that compiles string into Abstract Syntax Tree,
     that could be interpreted with Evaluator.
@@ -30,20 +38,35 @@ def build(expr: str, types: Mapping[str, type]) -> nodes:
     For more secure variables, use build_safe
     """
 
+    check_expr_len(expr, max_expr_length)
+
     tokens = Lexer(expr).tokenize()
+
+    if isinstance(tokens, Lexer.Failure):
+        error_msg = diagnose(expr, tokens)
+        raise RuntimeError(error_msg)
+
     ast = Parser(tokens).parse()
 
     if isinstance(ast, Parser.Failure):
-        raise RuntimeError(ast)
+        error_msg = diagnose(expr, ast)
+        raise RuntimeError(error_msg)
 
     typ = TypeChecker(types).check(ast)
 
-    if isinstance(typ, TypeChecker.TypeFail):
-        raise RuntimeError(typ)
+    if isinstance(typ, TypeChecker.Failure):
+        error_msg = diagnose(expr, typ)
+        raise RuntimeError(error_msg)
 
-    return ConstantFolder().fold(ast)
+    folded_ast = ConstantFolder().fold(ast)
 
-def build_safe(expr: str, json_types: str) -> nodes:
+    if isinstance(folded_ast, ConstantFolder.Failure):
+        error_msg = diagnose(expr, folded_ast)
+        raise RuntimeError(error_msg)
+
+    return folded_ast
+
+def build_safe(expr: str, json_types: str, max_expr_length:int=80) -> nodes:
     """
     More secure compiler, that use json in string format,
     to evaluate variables. Recomended, if variables are taken from user.
@@ -59,22 +82,24 @@ def build_safe(expr: str, json_types: str) -> nodes:
     For more secure version, use build_isolated
     """
 
-    return build(expr, deserialize_type_dict(json_types))
+    return build(expr, TypeDictCodec.decode(json_types), max_expr_length)
 
-def build_isolated(expr: str, json_types: str) -> nodes:
+def build_isolated(expr: str, json_types: str, max_expr_length:int=80) -> nodes:
     """
     Safest compiler. Works same as build_safe but also runs script
     in separated process with setted resource limits
 
     WINDOWS:
         - adress space (committed): 100 MB
-        - execution time: 5s
+        - CPU execution time: 5s
+        - user space execution time: 5s
         - handles: 481
         - job object active processes: 1
         - cleanup on job close: enabled
 
     LINUX:
-        - execution time: 5s
+        - Wall-clock execution time: 5s
+        - CPU execution time: 5s
         - file descriptors: 10
         - adress space: 100 MB
         - processes/threads: creation disabled
@@ -85,7 +110,7 @@ def build_isolated(expr: str, json_types: str) -> nodes:
         - priority increase: disabled
         - real-time CPU time: disabled
         - pending signals: 32
-    
+
     MacOS:
         WARNING:
 
@@ -93,7 +118,7 @@ def build_isolated(expr: str, json_types: str) -> nodes:
         not enforced by the OS and other limits may behave unexpectedly,
         especially in multithreaded programs. See documentation for details
 
-        - execution time: 5s
+        - CPU execution time: 5s
         - file descriptors: 10
         - processes: process creation disabled
         - stack size: 4 MB
@@ -101,31 +126,50 @@ def build_isolated(expr: str, json_types: str) -> nodes:
         - locked memory: 0 B
     """
 
-    data = json.dumps({'expr': expr, 'types': json_types})
-    cmd_args = ['python', '-m', 'evaluator.workers.build_safe']
+    data = json.dumps({'expr': expr, 'types': json_types, 'expr_len': max_expr_length})
+    cmd_args = ['python', '-m', 'evaluator.sandbox.workers.build_safe']
+    new_data = SANDBOX.create_process(cmd_args, data)
 
     if OS in ('Linux', 'Darwin'):
-        unix_api = UnixProcessAPI #type:ignore
-        new_unix_data = unix_api.create_unix_process(cmd_args, data)
-        return deserialize_ast(new_unix_data)
+        if isinstance(new_data, SANDBOX.Output):
+            return ASTCodec.decode(new_data.value)
 
-    elif OS == 'Windows':
-        win_api = WindowsProcessAPI #type:ignore
-        new_win_data = win_api.create_windows_process(
-            ' '.join(cmd_args),
-            data.encode('utf-8')
-        )
-        decode_data = new_win_data.value.decode('utf-8')
-        if isinstance(new_win_data, win_api.Error):
-            raise RuntimeError(decode_data)
-        elif isinstance(new_win_data, win_api.Output):
-            return deserialize_ast(decode_data)
+        elif isinstance(new_data, SANDBOX.Error):
+            if isinstance(new_data, SANDBOX.KilledProcess):
+                raise RuntimeError(f'Process was killed with signal {new_data.signal}')
+
+            elif isinstance(new_data, SANDBOX.WallKill):
+                raise RuntimeError('process was killed by reaching wall-time limit')
+            
+            elif isinstance(new_data, SANDBOX.SubprocessError):
+                raise RuntimeError(new_data.value)
+
+            else:
+                raise AttributeError(
+                    f'Fail object {repr(new_data)} does not exist as error type'
+                )
         else:
-            raise RuntimeError('Process returned invalid object')
+            assert_never(new_data)
+    
+    elif OS == 'Windows':
+        if isinstance(new_data, SANDBOX.Output):
+            return ASTCodec.decode(new_data.value)
+            
+        elif isinstance(new_data, SANDBOX.Error):
+            if isinstance(new_data, SANDBOX.SubprocessError):
+                raise RuntimeError(new_data.value)
+            else:
+                raise AttributeError(
+                    f'Fail object {repr(new_data)} does not exist as error type'
+                )
+
+        else:
+            assert_never(new_data)
+        
     else:
         raise RuntimeError('During launching sandbox, OS was not recognized')
 
-def evaluate(expr: str, vars: Mapping[str, atom_types]) -> atom_types:
+def evaluate(expr: str, vars: dict[str, atom_types], max_expr_length:int=80) -> atom_types:
     """
     Basic interpreter, that have all interpreter stages
     and evaluate variables from python dictionary.
@@ -133,11 +177,20 @@ def evaluate(expr: str, vars: Mapping[str, atom_types]) -> atom_types:
     For more secure variables, use evaluate_safe
     """
 
+    check_expr_len(expr, max_expr_length)
+
     type_dict = {key: type(val) for key, val in vars.items()}
     folded_ast = build(expr, type_dict)
-    return Evaluator(vars).eval(folded_ast)
 
-def evaluate_safe(expr: str, json_vars: str) -> atom_types:
+    ans = Evaluator(vars).eval(folded_ast)
+
+    if isinstance(ans, Evaluator.Failure):
+        error_msg = diagnose(expr, ans)
+        raise RuntimeError(error_msg)
+
+    return ans
+
+def evaluate_safe(expr: str, json_vars: str, max_expr_length:int=80) -> atom_types:
     """
     More secure interpreter, that use json in string format,
     to evaluate variables. Recomended, if variables are taken from user.
@@ -154,22 +207,24 @@ def evaluate_safe(expr: str, json_vars: str) -> atom_types:
     For more secure version, use evaluate_isolated
     """
 
-    return evaluate(expr, json_str_to_dict(json_vars))
+    return evaluate(expr, VarsDictCodec.decode(json_vars), max_expr_length)
 
-def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
+def evaluate_isolated(expr: str, json_vars: str, max_expr_length:int=80) -> atom_types:
     """
     Safest evaluator. Works same as evaluate_safe but also runs script
     in separated process with setted resource limits
 
     WINDOWS:
         - adress space (committed): 100 MB
-        - execution time: 5s
+        - CPU execution time: 5s
+        - user space execution time: 5s
         - handles: 481
         - job object active processes: 1
         - cleanup on job close: enabled
 
     LINUX:
-        - execution time: 5s
+        - Wall-clock execution time: 5s
+        - CPU execution time: 5s
         - file descriptors: 10
         - adress space: 100 MB
         - processes/threads: creation disabled
@@ -180,7 +235,7 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
         - priority increase: disabled
         - real-time CPU time: disabled
         - pending signals: 32
-    
+
     MacOS:
         WARNING:
 
@@ -196,25 +251,44 @@ def evaluate_isolated(expr: str, json_vars: str) -> atom_types:
         - locked memory: 0 B
     """
 
-    data = json.dumps({'expr': expr, 'vvars': json_vars})
-    cmd_args = ['python', '-m', 'evaluator.workers.evaluate_safe']
+    data = json.dumps({'expr': expr, 'vvars': json_vars, 'expr_len': max_expr_length})
+    cmd_args = ['python', '-m', 'evaluator.sandbox.workers.evaluate_safe']
+    new_data = SANDBOX.create_process(cmd_args, data)
 
     if OS in ('Linux', 'Darwin'):
-        unix_api = UnixProcessAPI #type:ignore
-        decode_data = unix_api.create_unix_process(cmd_args, data)
-        return deserialize_value(json.loads(decode_data))
-    elif OS == 'Windows':
-        win_api = WindowsProcessAPI #type:ignore
-        new_win_data = win_api.create_windows_process(
-            ' '.join(cmd_args),
-            data.encode('utf-8')
-        )
-        decode_data = new_win_data.value.decode('utf-8')
-        if isinstance(new_win_data, win_api.Error):
-            raise RuntimeError(decode_data)
-        elif isinstance(new_win_data, win_api.Output):
-            return deserialize_value(json.loads(decode_data))
+        if isinstance(new_data, SANDBOX.Output):
+            return ValueCodec.decode(json.loads(new_data.value))
+
+        elif isinstance(new_data, SANDBOX.Error):
+            if isinstance(new_data, SANDBOX.KilledProcess):
+                raise RuntimeError(f'Process was killed with signal {new_data.signal}')
+
+            elif isinstance(new_data, SANDBOX.WallKill):
+                raise RuntimeError('process was killed by reaching wall-clock time limit')
+
+            elif isinstance(new_data, SANDBOX.SubprocessError):
+                raise RuntimeError(new_data.value)
+
+            else:
+                raise AttributeError(
+                    f'Fail object {repr(new_data)} does not exist as error type'
+                )
+
         else:
-            raise RuntimeError('Process returned invalid object')
+            assert_never(new_data)
+
+    elif OS == 'Windows':
+        if isinstance(new_data, SANDBOX.Output):
+            return ValueCodec.decode(json.loads(new_data.value))
+
+        elif isinstance(new_data, SANDBOX.Error):
+            if isinstance(new_data, SANDBOX.SubprocessError):
+                raise RuntimeError(new_data.value)
+            else:
+                raise AttributeError('assert never')
+        else:
+            raise AttributeError(
+                f'Fail object {repr(new_data)} does not exist as error type'
+            )
     else:
         raise RuntimeError('During launching sandbox, OS was not recognized')
