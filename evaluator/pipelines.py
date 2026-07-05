@@ -1,4 +1,9 @@
-from evaluator.interpreter.stages import Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
+from evaluator.interpreter.stages.lexer import Lexer
+from evaluator.interpreter.stages.parser import Parser
+from evaluator.interpreter.stages.typechecker import TypeChecker
+from evaluator.interpreter.stages.constantfolder import ConstantFolder
+from evaluator.interpreter.stages.evaluator import Evaluator
+
 from evaluator.types import atom_types, nodes
 from evaluator.protocols.ipc import ValueCodec, ASTCodec
 from evaluator.protocols.serialization import TypeDictCodec, VarsDictCodec
@@ -22,6 +27,10 @@ def check_expr_len(expr: str, limit: int) -> None:
             f"Expression length limit exceeded. Lenght: {expr_len}, Limit: {limit}"
         )
 
+class EvaluatorError(Exception):
+    pass
+
+
 def build(expr: str, types: dict[str, type], max_expr_length:int=80) -> nodes:
     """
     Basic compiler, that compiles string into Abstract Syntax Tree,
@@ -44,25 +53,25 @@ def build(expr: str, types: dict[str, type], max_expr_length:int=80) -> nodes:
 
     if isinstance(tokens, Lexer.Failure):
         error_msg = diagnose(expr, tokens)
-        raise RuntimeError(error_msg)
+        raise EvaluatorError(error_msg)
 
     ast = Parser(tokens).parse()
 
     if isinstance(ast, Parser.Failure):
         error_msg = diagnose(expr, ast)
-        raise RuntimeError(error_msg)
+        raise EvaluatorError(error_msg)
 
     typ = TypeChecker(types).check(ast)
 
     if isinstance(typ, TypeChecker.Failure):
         error_msg = diagnose(expr, typ)
-        raise RuntimeError(error_msg)
+        raise EvaluatorError(error_msg)
 
     folded_ast = ConstantFolder().fold(ast)
 
     if isinstance(folded_ast, ConstantFolder.Failure):
         error_msg = diagnose(expr, folded_ast)
-        raise RuntimeError(error_msg)
+        raise EvaluatorError(error_msg)
 
     return folded_ast
 
@@ -136,16 +145,16 @@ def build_isolated(expr: str, json_types: str, max_expr_length:int=80) -> nodes:
 
         elif isinstance(new_data, SANDBOX.Error):
             if isinstance(new_data, SANDBOX.KilledProcess):
-                raise RuntimeError(f'Process was killed with signal {new_data.signal}')
+                raise EvaluatorError(f'Process was killed with signal {new_data.signal}')
 
             elif isinstance(new_data, SANDBOX.WallKill):
-                raise RuntimeError('process was killed by reaching wall-time limit')
+                raise EvaluatorError('process was killed by reaching wall-time limit')
             
             elif isinstance(new_data, SANDBOX.SubprocessError):
-                raise RuntimeError(new_data.value)
+                raise EvaluatorError(new_data.value)
 
             else:
-                raise AttributeError(
+                raise EvaluatorError(
                     f'Fail object {repr(new_data)} does not exist as error type'
                 )
         else:
@@ -157,9 +166,9 @@ def build_isolated(expr: str, json_types: str, max_expr_length:int=80) -> nodes:
             
         elif isinstance(new_data, SANDBOX.Error):
             if isinstance(new_data, SANDBOX.SubprocessError):
-                raise RuntimeError(new_data.value)
+                raise EvaluatorError(new_data.value)
             else:
-                raise AttributeError(
+                raise EvaluatorError(
                     f'Fail object {repr(new_data)} does not exist as error type'
                 )
 
@@ -167,7 +176,7 @@ def build_isolated(expr: str, json_types: str, max_expr_length:int=80) -> nodes:
             assert_never(new_data)
         
     else:
-        raise RuntimeError('During launching sandbox, OS was not recognized')
+        raise EvaluatorError('During launching sandbox, OS was not recognized')
 
 def evaluate(expr: str, vars: dict[str, atom_types], max_expr_length:int=80) -> atom_types:
     """
@@ -186,7 +195,7 @@ def evaluate(expr: str, vars: dict[str, atom_types], max_expr_length:int=80) -> 
 
     if isinstance(ans, Evaluator.Failure):
         error_msg = diagnose(expr, ans)
-        raise RuntimeError(error_msg)
+        raise EvaluatorError(error_msg)
 
     return ans
 
@@ -261,16 +270,16 @@ def evaluate_isolated(expr: str, json_vars: str, max_expr_length:int=80) -> atom
 
         elif isinstance(new_data, SANDBOX.Error):
             if isinstance(new_data, SANDBOX.KilledProcess):
-                raise RuntimeError(f'Process was killed with signal {new_data.signal}')
+                raise EvaluatorError(f'Process was killed with signal {new_data.signal}')
 
             elif isinstance(new_data, SANDBOX.WallKill):
-                raise RuntimeError('process was killed by reaching wall-clock time limit')
+                raise EvaluatorError('process was killed by reaching wall-clock time limit')
 
             elif isinstance(new_data, SANDBOX.SubprocessError):
-                raise RuntimeError(new_data.value)
+                raise EvaluatorError(new_data.value)
 
             else:
-                raise AttributeError(
+                raise EvaluatorError(
                     f'Fail object {repr(new_data)} does not exist as error type'
                 )
 
@@ -283,12 +292,12 @@ def evaluate_isolated(expr: str, json_vars: str, max_expr_length:int=80) -> atom
 
         elif isinstance(new_data, SANDBOX.Error):
             if isinstance(new_data, SANDBOX.SubprocessError):
-                raise RuntimeError(new_data.value)
+                raise EvaluatorError(new_data.value)
             else:
-                raise AttributeError('assert never')
+                raise EvaluatorError('assert never')
         else:
-            raise AttributeError(
+            raise EvaluatorError(
                 f'Fail object {repr(new_data)} does not exist as error type'
             )
     else:
-        raise RuntimeError('During launching sandbox, OS was not recognized')
+        raise EvaluatorError('During launching sandbox, OS was not recognized')

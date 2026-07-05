@@ -2,9 +2,12 @@ import pytest
 import random
 import string as s
 
-from evaluator.interpreter.stages import (
-    Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
-)
+from evaluator.interpreter.stages.lexer import Lexer
+from evaluator.interpreter.stages.parser import Parser
+from evaluator.interpreter.stages.typechecker import TypeChecker
+from evaluator.interpreter.stages.constantfolder import ConstantFolder
+from evaluator.interpreter.stages.evaluator import Evaluator
+
 from evaluator.types import Lexer_tok, Lexer_type
 from tests.test_interpreter.utils import Random_ast, create_all_lexer_toks, log_error_from_fuzzer
 

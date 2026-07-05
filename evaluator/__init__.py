@@ -1,6 +1,9 @@
-from evaluator.interpreter.stages import (
-    Lexer, Parser, TypeChecker, ConstantFolder, Evaluator
-)
+from evaluator.interpreter.stages.lexer import Lexer
+from evaluator.interpreter.stages.parser import Parser
+from evaluator.interpreter.stages.typechecker import TypeChecker
+from evaluator.interpreter.stages.constantfolder import ConstantFolder
+from evaluator.interpreter.stages.evaluator import Evaluator
+
 from evaluator.interpreter.diagnostics import diagnose
 from evaluator.pipelines import (
     build, build_safe, build_isolated,

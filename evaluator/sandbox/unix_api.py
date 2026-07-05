@@ -1,6 +1,5 @@
 import subprocess
 import functools
-from dataclasses import dataclass
 from platform import system
 from evaluator.sandbox.base import Sandbox
 

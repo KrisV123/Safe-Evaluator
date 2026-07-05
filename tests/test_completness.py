@@ -2,14 +2,20 @@ import inspect
 import pytest
 import evaluator.interpreter.stages as stages
 from evaluator.interpreter.diagnostics import DIAGNOSTICS_REGISTER
-from evaluator.interpreter.stages import BaseFailure
+from evaluator.interpreter.stages.base import BaseFailure
 
 def test_diagnostics_completness():
     members = inspect.getmembers(stages)
+    stage_modules = [
+        module for name, module in members if not name.startswith('__')
+    ]
+
     classes = [
-        obj for _, obj in members
-        if inspect.isclass(obj) and
-        obj.__module__ == stages.__name__
+        obj
+        for module in stage_modules
+        for _, obj in inspect.getmembers(module)
+        if inspect.isclass(obj)
+        if obj.__module__ == module.__name__
     ]
 
     failures = [

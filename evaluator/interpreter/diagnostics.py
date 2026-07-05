@@ -16,9 +16,13 @@ from typing import assert_never
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from evaluator.interpreter.stages import (
-    Lexer, Parser, TypeChecker, ExecutionBase, ConstantFolder, Evaluator
-)
+from evaluator.interpreter.stages.lexer import Lexer
+from evaluator.interpreter.stages.parser import Parser
+from evaluator.interpreter.stages.typechecker import TypeChecker
+from evaluator.interpreter.stages.constantfolder import ConstantFolder
+from evaluator.interpreter.stages.evaluator import Evaluator
+from evaluator.interpreter.stages.base import ExecutionBase
+
 from evaluator.types import (
     BinaryOp, UnaryOp, Value, Collection, CompareNode, Constant, nodes
 )
