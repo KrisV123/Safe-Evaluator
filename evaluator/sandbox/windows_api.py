@@ -197,30 +197,44 @@ class WindowsProcessAPI(Sandbox):
     HANDLE_FLAG_INHERIT = 1
 
     @classmethod
-    def _watchdog_handles(cls, pi: PROCESS_INFORMATION, limit: int) -> None:
-        """
-        Check, if ammount of handles is not larger than limit.
-        If yes, process will will be killed. Meant to be execudet in parallel.
-        """
-
-        while True:
-            count = wintypes.DWORD()
-            KERNEL32.GetProcessHandleCount(
-                pi.hProcess,
-                ctypes.byref(count)
-            )
-            if count.value > limit:
-                KERNEL32.TerminateProcess(pi.hProcess, 1)
-            time.sleep(0.05)
-
+    def _check_time(cls, start_time: float, time_limit: int) -> bool:
+        current_time = time.monotonic()
+        running_time = current_time - start_time
+        return True if running_time > time_limit else False
+    
     @classmethod
-    def _watchdog_cpu_time(cls, pi: PROCESS_INFORMATION, limit: int) -> None:
+    def _check_handle(cls, pi: PROCESS_INFORMATION, handle_limit: int) -> bool:
+        handle_count = wintypes.DWORD()
+        KERNEL32.GetProcessHandleCount(
+            pi.hProcess,
+            ctypes.byref(handle_count)
+        )
+        return True if handle_count.value > handle_limit else False
+    
+    @classmethod
+    def _watchdog(cls,
+                  pi: PROCESS_INFORMATION,
+                  time_limit: int,
+                  handle_limit: int,
+                  event: threading.Event):
+        """
+        Check, if ammount of handles is not larger than limit
+        of process is executing longer then time limit.
+        If yes, process will will be killed.
+        Meant to be executed in parallel.
+        """
+
         start_time = time.monotonic()
-        while True:
-            current_time = time.monotonic()
-            if current_time - start_time > limit:
-                KERNEL32.TerminateProcess(pi.hProcess, 1)
-            time.sleep(0.05)
+
+        while not event.is_set():
+            is_time_over = cls._check_time(start_time, time_limit)
+            is_handle_over = cls._check_handle(pi, handle_limit)
+
+            if is_time_over or is_handle_over:
+                success = KERNEL32.TerminateProcess(pi.hProcess, 1)
+                cls.check_os_error(success)
+
+            event.wait(0.05)
 
     @classmethod
     def _create_pipe(cls,
@@ -376,17 +390,17 @@ class WindowsProcessAPI(Sandbox):
             success = KERNEL32.AssignProcessToJobObject(job, pi.hProcess)
             cls.check_os_error(success)
 
-            threading.Thread(
-                target=cls._watchdog_handles,
-                daemon=True,
-                args=(pi, 81 + 400) # 81 cca minimum + 400 extra handles
-            ).start()
+            handle_limit = 81 + 400
+            stop_event = threading.Event()
 
-            threading.Thread(
-                target=cls._watchdog_cpu_time,
+            watchdog = threading.Thread(
+                target=cls._watchdog,
                 daemon=True,
-                args=(pi, time_limit) # 5 seconds
-            ).start()
+                args=(pi, time_limit, handle_limit, stop_event)
+            )
+            watchdog.start()
+            stack.callback(watchdog.join)
+            stack.callback(stop_event.set)
 
             success = KERNEL32.ResumeThread(pi.hThread)
             cls.check_os_error(success)
@@ -409,8 +423,10 @@ class WindowsProcessAPI(Sandbox):
             while True:
                 output = cls._read_pipe(output, stdout_r)
                 error = cls._read_pipe(error, stderr_r)
-                if KERNEL32.WaitForSingleObject(pi.hProcess, 0) == 0:
+                p_state = KERNEL32.WaitForSingleObject(pi.hProcess, 0)
+                if p_state == 0:
                     break
+                cls.check_os_error(p_state)
                 time.sleep(0.01)
 
             cls._safe_close(stdout_r)
