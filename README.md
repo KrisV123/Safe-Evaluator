@@ -114,9 +114,11 @@ Whole interpreter consists of 5 components
 - Evaluator
 - diagnostic tools
 
-Each component returns it's own Failure object, that catches every possible exception. Each Failure have it's own specific data about error. This makes capturing errors more simple (only one or two Failure objects can occure in each component based on it's purpose except many different exceptions), code can easily adapt in pipeline based on Failure and makes diagnostics simple.
+Each component returns its own `Failure` object, which captures every possible exception. Each Failure contains error-specific data, allowing errors to be handled in a consistent way. This simplifies error handling, since each component typically produces only one or two Failure types depending on its purpose, rather than many different exceptions. As a result, the pipeline can easily adapt its behavior based on the returned Failure, while diagnostics remain straightforward.
 
 Components are handwritten, no parser generators are used (only regex in a few cases for performance).
+
+The included pipelines are only a starting point. The modular design encourages you to build your own pipelines for your specific use cases. You can take inspiration from the prebuilt pipelines in evaluator.pipelines.
 
 ---
 
