@@ -229,7 +229,7 @@ Limits are OS-specific, since each operating system tracks and enforces resource
 - CPU (user-mode) execution time: `time_limit` (default 5s) — kernel-enforced via Job Object
 - Wall-clock time: `time_limit` (default 5s) — enforced via a polling watchdog thread
 - Committed memory: `memory_limit` (default 100 MB)
-- Handles: 481 — enforced via a polling watchdog thread, so this limit is approximate rather than kernel-guaranteed
+- Handles: 481 — enforced via a polling watchdog thread
 - Job object active processes: 1 — kernel-enforced
 - Kill on job close: enabled (all processes in the job are terminated if the job handle is closed, e.g. on crash of the controlling process)
 
