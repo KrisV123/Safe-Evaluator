@@ -39,12 +39,12 @@ DISCLAIMER: Before using this in production, it is recommended to study all safe
 
 6 main functions:
 
-- evaluate (main function for evaluating expressions)
-- evaluate_safe (more secure version, uses JSON input for variables)
-- evaluate_isolated (safest evaluating function, that at the top use process-level isolation)
-- build (function for precompiling an expression into an AST)
-- build_safe (more secure compile function, uses JSON input)
-- build_isolated (safest compile function, that at the top use process-level isolation)
+- `evaluate` (main function for evaluating expressions)
+- `evaluate_safe` (more secure version, uses JSON input for variables)
+- `evaluate_isolated` (safest evaluating function, that at the top use process-level isolation)
+- `build` (function for precompiling an expression into an AST)
+- `build_safe` (more secure compile function, uses JSON input)
+- `build_isolated` (safest compile function, that at the top use process-level isolation)
 
 Each component can also be used separately.
 
@@ -314,11 +314,11 @@ answer = Evaluator(variables).eval(ast)
 
 Parameter max_expr_length filter any expression larger than limit (presetted to 80 chars).
 
-5. build_safe(expr: str, vars: str, max_expr_length:int=80)
+5. `build_safe(expr: str, vars: str, max_expr_length:int=80)`
 
 Same as build, but takes string with JSON, that contains variables and it's types are in string format
 
-6. build_isolated(expr: str, vars: str, max_expr_length:int=80)
+6. `build_isolated(expr: str, vars: str, max_expr_length:int=80)`
 
 Same as build_safe, but build AST in separate process with limited resources.
 
@@ -357,6 +357,8 @@ However, it does not protect against resource-intensive computations within the 
 
 Also, library does not use any external libraries to prevent supply chain attack.
 
+---
+
 ### Whitelisted operations
 
 Only explicitly allowed operators are supported (mentioned previously)
@@ -365,11 +367,15 @@ Each operation is mapped to a controlled implementation, preventing unexpected b
 
 This reduces the attack surface, but still allows expressions that may be computationally expensive.
 
+---
+
 ### Expression length
 
 Accepts only expressions up to a predefined maximum length. Longer expressions are automatically rejected before any processing begins.
 
 This serves as a first-pass filter against obviously malformed or malicious input, but is not sufficient to prevent DoS attacks on its own.
+
+---
 
 ### Safe input handling (evaluate_safe, build_safe)
 
@@ -383,9 +389,13 @@ This prevents injection of:
 
 However JSON parsing adds overhead. Recommended only when necessary or when the problem is not computationally expensive.
 
+---
+
 ### Sandboxing (evaluate_isolated, build_isolated)
 
 Specific functions evaluate themselves in a separate process with limited resources. See "Sandboxes (process isolation)" for more details about limitations.
+
+---
 
 ### Static type checking (TypeChecker)
 
@@ -400,6 +410,8 @@ Limitations:
 e.g. [1, "a"] is treated simply as list
 
 - does not guarantee absence of runtime errors in all cases
+
+---
 
 ### Parser limits (basic DoS protection)
 
@@ -418,6 +430,8 @@ However:
 it does not prevent expensive evaluation after parsing
 large but valid expressions may still consume significant resources
 
+---
+
 ### Constant folding
 
 Constant expressions are evaluated during preprocessing.
@@ -426,6 +440,8 @@ This improves performance and reduces evaluation overhead.
 However:
 
 large constant expressions (e.g. very large powers) can still be expensive during folding itself
+
+---
 
 ### Limitations
 
@@ -439,6 +455,8 @@ It does not prevent:
 - e.g. always-true conditions
 - side-channel or timing attacks
 - type system is not strict enough to guarantee full safety
+
+---
 
 ### Summary
 
