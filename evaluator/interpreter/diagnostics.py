@@ -1,5 +1,4 @@
 """
-
 Module for diagnosing Failure objects.
 
 Runtime Error can occure in multiple components.

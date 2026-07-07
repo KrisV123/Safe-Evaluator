@@ -122,25 +122,25 @@ Components are handwritten, no parser generators are used (only regex in a few c
 
 ### Lexer
 
-Takes a string as input and returns a list of lexer tokens (Lexer_tok objects).
+Takes a string as input and returns a list of lexer tokens (`Lexer_tok` objects).
 Each token stores the lexeme type, value, and position. Only the type is required for evaluation, the rest is for debugging.
 
-If tokenization fails, a Lexer.Failure object is returned with error details.
+If tokenization fails, a `Lexer.Failure` object is returned with error details.
 
 ---
 
 ### Parser
 
 A Packrat parser that takes lexer tokens and returns an decorated Abstract Syntax Tree (AST).
-Parser is based on PEG grammar rules defined in evaluator/parser_grammer.gram, mimicking a subset of Python grammar.
+Parser is based on PEG grammar rules defined in `evaluator/parser_grammer.gram`, mimicking a subset of Python grammar.
 
-If parsing fails, a Parser.Failure object is returned with error details.
+If parsing fails, a `Parser.Failure` object is returned with error details.
 
 ---
 
 ### TypeChecker
 
-A static type checker that takes an dictionary with variable names and their type objects, AST and returns the resulting type based on rules in evaluator/interpreter/tables.py (mimicking type rules in python).
+A static type checker that takes an dictionary with variable names and their type objects, AST and returns the resulting type based on rules in `evaluator/interpreter/tables.py` (mimicking type rules in python).
 
 Each type is represented as a set of possible types (UnionType), even for single type.
 
@@ -150,7 +150,7 @@ Limitations:
 
 - Cannot check contents inside containers (shallow typing)
 
-If a type error occurs, a TypeChecker.Failure object is returned with error details. TypeChecker distinguishes between two error types (TypeFailure and GenericFailure). TypeFailure will be returned, if TypeChecker catches type error and in every other case will be returned as GenericFailure (for example dividing with zero). TypeFailure and GenericFailure inherit from main parent TypeChecker.Failure object, so each of them can be recognized as that object
+If a type error occurs, a `TypeChecker.Failure` object is returned with error details. TypeChecker distinguishes between two error types (`TypeFailure` and `GenericFailure`). `TypeFailure` will be returned, if TypeChecker catches type error and in every other case will be returned as `GenericFailure` (for example dividing with zero). `TypeFailure` and `GenericFailure` inherit from main parent `TypeChecker.Failure` object, so each of them can be recognized as that object
 
 If user is operating with json-like strings, TypeChecker instance can be created with classmethod
 
@@ -170,7 +170,7 @@ Optimizes AST by folding constant expressions into single nodes.
 
 Not required, but improves performance if same AST is evaluated repeatedly.
 
-If runtime error occures, a Failure object is returned with error details.
+If runtime error occures, a `ConstantFolder.Failure` object is returned with error details.
 
 ---
 
@@ -178,7 +178,7 @@ If runtime error occures, a Failure object is returned with error details.
 
 The final component that takes dictionary with variable names and runtime values, AST and returnes evaluated value.
 
-If runtime error occures, a Evaluator.Failure object will be returned with error details.
+If runtime error occures, a `Evaluator.Failure` object will be returned with error details.
 
 If user is also operating with json-like strings, Evaluator instance can be also created with classmethod
 
@@ -192,9 +192,9 @@ and will be automatically converted.
 
 ### Diagnostic tools
 
-Every component have build it's own diagnosting tool for their specific errors and registered in DIAGNOSTICS_REGISTER table. Every tool analyze error data and returns string with error message.
+Every component have build it's own diagnosting tool for their specific errors and registered in `DIAGNOSTICS_REGISTER` table. Every tool analyze error data and returns string with error message.
 
-For creating error message, diagnose function can be used, which works as orchestrator to choose right diagnosting tool.
+For creating error message, `diagnose(expr: str, error: ACCEPTED_ERRORS)` function can be used, which works as orchestrator to choose right diagnosting tool. `ACCEPT_ERRORS` is global variable in `evaluator.interpreter.diagnostics`, that contains union type of every possible error for type checking (every Failure object in prebuild components). Needs to be extended, if new component with Failure objects is added 
 
 ---
 
