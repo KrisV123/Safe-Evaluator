@@ -5,17 +5,13 @@ class Sandbox(ABC):
     """Abstract class for OS api, that create limited processes"""
 
     @dataclass(slots=True, frozen=True)
-    class ReturnTypes:
-        pass
-
-    @dataclass(slots=True, frozen=True)
-    class Output(ReturnTypes):
+    class Output:
         """Valid output from subprocess worker without any error"""
         value: str
 
 
     @dataclass(slots=True, frozen=True)
-    class Error(ReturnTypes):
+    class Error:
         """Generic parent error class for other errors"""
         pass
 

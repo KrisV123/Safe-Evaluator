@@ -249,11 +249,7 @@ class WindowsProcessAPI(Sandbox):
         if inherit == 'r':
             success = KERNEL32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 1)
             cls.check_os_error(success)
-            success = KERNEL32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 0)
-            cls.check_os_error(success)
         elif inherit == 'w':
-            success = KERNEL32.SetHandleInformation(r_handle, cls.HANDLE_FLAG_INHERIT, 0)
-            cls.check_os_error(success)
             success = KERNEL32.SetHandleInformation(w_handle, cls.HANDLE_FLAG_INHERIT, 1)
             cls.check_os_error(success)
         elif inherit == 'rw':

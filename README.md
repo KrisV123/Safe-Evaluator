@@ -199,23 +199,102 @@ For creating error message, diagnose function can be used, which works as orches
 
 ---
 
+## Sandboxes (process isolation)
+
+Since the project itself does not analyze the cost of an evaluated expression before execution, the library includes a sandbox module that limits resource usage at the OS level by isolating each evaluation in a separate process.
+
+Limits are OS-specific, since each operating system tracks and enforces resources differently. `time_limit` and `memory_limit` are configurable per call (both default to 5s / 100 MB); all other limits below are fixed constants.
+
+**UNIX (Linux + macOS)**
+
+- Wall-clock time: `time_limit` (default 5s)
+- CPU execution time: `time_limit` (default 5s)
+- Open file descriptors: 10
+- Process/thread creation: disabled
+- Stack size: 4 MB
+- Core dumps: disabled
+- Locked memory: disabled
+
+**Linux additionally**
+
+- Virtual memory: `memory_limit` (default 100 MB)
+- POSIX message queues: disabled
+- Priority increase (niceness): disabled
+- Real-time CPU time: disabled
+- Pending signals: 32
+
+**Windows**
+
+- CPU (user-mode) execution time: `time_limit` (default 5s) — kernel-enforced via Job Object
+- Wall-clock time: `time_limit` (default 5s) — enforced via a polling watchdog thread
+- Committed memory: `memory_limit` (default 100 MB)
+- Handles: 481 — enforced via a polling watchdog thread, so this limit is approximate rather than kernel-guaranteed
+- Job object active processes: 1 — kernel-enforced
+- Kill on job close: enabled (all processes in the job are terminated if the job handle is closed, e.g. on crash of the controlling process)
+
+This prevents:
+
+- CPU overload
+- RAM overload
+- Uncontrolled creation of kernel objects and open files
+- Fork bombs
+- A crashing subprocess from affecting the main process
+
+However, process isolation introduces significant overhead when spawning processes, and watchdog-based limits (Windows handle count, wall-clock time) are polled rather than instantaneous, so they are not perfectly deterministic. Use this when security is the top priority, not when raw throughput matters.
+
+**macOS-specific limitations**
+
+Resource limiting relies on `setrlimit`, which has known limitations on macOS. `RLIMIT_NPROC` applies per-user rather than per-process, so setting it to 0 may interfere with other processes running under the same user account. Additionally, limits are applied between `fork()` and `exec()` during process spawning — if the parent process is multithreaded, locks held by other threads are not transferred to the child, which can cause deadlocks or crashes. Use on macOS only if you understand these limitations and accept the weaker security guarantees.
+
+**General limits**
+
+- The sandbox is designed to limit resource usage, not as a full substitute for OS-level isolation (some APIs go further, but this is not a general-purpose sandboxing tool).
+- Resource tracking via process isolation is non-deterministic and depends on OS state.
+
+### Usage
+
+The module exposes two main APIs, `WindowsProcessAPI` and `UnixProcessAPI`, both inheriting from the abstract class `Sandbox`, which defines the shared interface. Since each API is tied to a specific operating system, and using them directly could cause irrelevant typing errors, the `get_sandbox()` function resolves the correct implementation at runtime and unifies their behavior across systems. The main method, `create_process()`, has the same signature on every API and returns an object wrapping either the real output or an error state. Because implementation and error conditions differ across operating systems, each API can return a different subset of the error types below.
+
+Method signature:
+
+```python
+create_process(cls,
+               cmd: list[str],
+               input: str,
+               time_limit: int = 5,
+               memory_limit: int = 100) -> Sandbox.Output | Sandbox.Error
+```
+
+**Shared return types**
+
+- `Output` — valid output from the subprocess (no error).
+- `Error` — generic parent class for all error types below.
+- `SubprocessError` — contains the stderr output (e.g. a Python traceback) produced by the worker process.
+
+**Linux and macOS specific**
+
+- `WallKill` — returned if the wall-clock time limit is reached; carries no additional data.
+- `KilledProcess` — returned if any other limit is reached; carries the signal number that terminated the process.
+
+Since usage is a bit more involved, a direct use case can be found in the `build_isolated` and `evaluate_isolated` function implementations in `evaluator/pipelines.py`.
+
 ## Build-in functions
 
 There are already 6 built-in functions using these tools to fully evaluate expression.
 
-1. evaluate(expr: str, vars: dict[str, atom_types], max_expr_length:int=80)
+1. `evaluate(expr: str, vars: dict[str, atom_types], max_expr_length:int=80)`
 
 Takes string with expression and python dictionary with variables to evaluate expression. Parameter max_expr_length filter any expression larger than limit (presetted to 80 chars).
 
-2. evaluate_safe(expr: str, vars: str, max_expr_length:int=80)
+2. `evaluate_safe(expr: str, vars: str, max_expr_length:int=80)`
 
 Same as evaluate, but takes string with JSON, that contains variables to evaluate expression.
 
-3. evaluate_isolated(expr: str, vars: str, max_expr_length:int=80)
+3. `evaluate_isolated(expr: str, vars: str, max_expr_length:int=80)`
 
 Same as evaluate_safe, but evaluate expression in separate process with limited resources.
 
-4. build(expr: str, vars: Mapping[str, type], max_expr_length:int=80)
+4. `build(expr: str, vars: Mapping[str, type], max_expr_length:int=80)`
 
 Takes string with expression and python dictionary with variables and it's coresponding type to create Abstract Syntax Tree. AST tree can be evaluated with Evaluator. Great, if you need to calculate same expression with multiple sets of variables. AST can be executed with Evaluator.
 
@@ -306,48 +385,7 @@ However JSON parsing adds overhead. Recommended only when necessary or when the 
 
 ### Sandboxing (evaluate_isolated, build_isolated)
 
-Specific functions evaluate themselves in a separate process with limited resources.
-
-**UNIX (Linux + macOS)**
-
-- Wall-clock time: 5s
-- CPU execution time: 5s
-- open file descriptors: 10
-- process/thread creation: disabled
-- stack size: 4 MB
-- core dumps: disabled
-- locked memory: disabled
-
-**Linux additionally**
-
-- virtual memory: 100 MB
-- POSIX message queues: disabled
-- priority increase: disabled
-- real-time CPU time: disabled
-- pending signals: 32
-
-**Windows**
-
-- CPU execution time: 5s
-- user space execution time: 5s
-- committed memory: 100 MB
-- handles: 481
-- job object active processes: 1
-- cleanup on job close: enabled
-
-This prevents:
-
-- overloading CPU
-- overloading RAM
-- uncontrolled creation of kernel objects and opened files
-- fork bombs
-- crashing does not influence main process
-
-However, this creates significant overhead when spawning processes and resource limiting is not deterministic. Recommended only when security is the top priority.
-
-MacOS only:
-
-Resource limiting relies on setrlimit which has several known limitations on macOS. RLIMIT_NPROC applies per-user rather than per-process, so setting it to 0 may interfere with other processes running under the same user. Additionally, limits are applied between fork() and exec() during process spawning — if the parent process is multithreaded, locks held by other threads are not transferred to the child, which can cause deadlocks or crashes. Use on macOS only if you understand these limitations and accept the weaker security guarantees.
+Specific functions evaluate themselves in a separate process with limited resources. See "Sandboxes (process isolation)" for more details about limitations.
 
 ### Static type checking (TypeChecker)
 
