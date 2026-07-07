@@ -113,7 +113,9 @@ Whole interpreter consists of 5 components
 - ConstantFolder
 - Evaluator
 
+
 - diagnostic tools
+- sandbox (process isolation)
 
 Each component returns it's own Failure object, that catches every possible exception. Each Failure have it's own specific data about error. This makes capturing errors more simple (only one or two Failure objects can occure in each component based on it's purpose except many different exceptions), code can easily adapt in pipeline based on Failure and makes diagnostics simple.
 
@@ -346,6 +348,8 @@ Since interpreter instead of raising exceptions returns Fialure objects, it need
 ## Security features
 
 This interpreter is designed to reduce risks compared to Python’s built-in eval, primarily by restricting the allowed syntax, operations, and data types. It is not a full sandbox and should not be considered a complete security solution.
+
+---
 
 ### Restricted execution model
 
