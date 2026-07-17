@@ -8,7 +8,8 @@ from evaluator.interpreter.diagnostics import diagnose
 from evaluator.pipelines import (
     build, build_safe, build_isolated,
     evaluate, evaluate_safe, evaluate_isolated,
-    check_expr_len
+    check_expr_len,
+    EvaluatorError
 )
 from evaluator.sandbox.os_orchester import get_sandbox
 from evaluator.protocols.ipc import ValueCodec, LexerTokCodec, ASTCodec
@@ -21,6 +22,7 @@ __all__ = [
     'diagnose',
     'build', 'build_safe', 'build_isolated', 'evaluate', 'evaluate_safe', 'evaluate_isolated',
     'check_expr_len',
+    'EvaluatorError',
     'get_sandbox',
     'ValueCodec', 'LexerTokCodec', 'ASTCodec',
     'TypeDictCodec', 'VarsDictCodec',
